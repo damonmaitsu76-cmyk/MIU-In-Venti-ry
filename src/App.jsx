@@ -6,6 +6,7 @@ import './App.css'
 
 function App() {
   const [count, setCount] = useState(0)
+  const [theme, setTheme] = useState('light')
 
   return (
     <>
@@ -24,9 +25,16 @@ function App() {
         <button
           type="button"
           className="counter"
-          onClick={() => setCount((count) => count * 0.01 + 1)}
+          onClick={() => setCount((count) => (count + 1) * 2)}
         >
           Count is {count}
+        </button>
+        <button
+          type="button"
+          className="changener"
+          onClick={() => setTheme((theme) => (theme === 'light' ? 'dark' : 'light'))}
+        >
+          Theme is {theme}
         </button>
       </section>
 
