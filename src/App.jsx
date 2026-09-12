@@ -10,7 +10,7 @@ function App() {
 
   return (
     <>
-      <section id="center">
+      <section id={`center ${theme}`}>
         <div className="hero">
           <img src={heroImg} className="base" width="170" height="179" alt="" />
           <img src={reactLogo} className="framework" alt="React logo" />
@@ -31,14 +31,14 @@ function App() {
         </button>
         <button
           type="button"
-          className="changener"
+          className="counter"
           onClick={() => setTheme((theme) => (theme === 'light' ? 'dark' : 'light'))}
         >
           Theme is {theme}
         </button>
       </section>
 
-      <div className="ticks"></div>
+      <div className={`ticks ${theme}`}></div>
 
       <section id="next-steps">
         <div id="docs">
@@ -121,7 +121,7 @@ function App() {
         </div>
       </section>
 
-      <div className="ticks"></div>
+      <div className={`ticks ${theme}`}></div>
       <section id="spacer"></section>
     </>
   )
