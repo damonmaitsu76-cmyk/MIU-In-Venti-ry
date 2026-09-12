@@ -10,8 +10,8 @@ function App() {
 
   return (
     <>
-      <section id={`center ${theme}`}>
-        <div className="hero">
+      <section id="center">
+        <div className="hero ${theme}">
           <img src={heroImg} className="base" width="170" height="179" alt="" />
           <img src={reactLogo} className="framework" alt="React logo" />
           <img src={viteLogo} className="vite" alt="Vite logo" />
@@ -29,6 +29,7 @@ function App() {
         >
           Count is {count}
         </button>
+        <div></div>
         <button
           type="button"
           className="counter"
