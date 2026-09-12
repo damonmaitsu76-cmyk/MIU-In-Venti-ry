@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import heroImg from './assets/hero.png'
 import reactLogo from './assets/react.svg'
 import viteLogo from './assets/vite.svg'
@@ -8,10 +8,19 @@ function App() {
   const [count, setCount] = useState(0)
   const [theme, setTheme] = useState('light')
 
+  useEffect(() => {
+    const root = window.document.documentElement;
+    if (theme === 'dark') {
+      root.classList.add('dark');
+    } else {
+      root.classList.remove('dark');
+    }
+  }, [theme]);
+
   return (
     <>
       <section id="center">
-        <div className="hero ${theme}">
+        <div className="hero">
           <img src={heroImg} className="base" width="170" height="179" alt="" />
           <img src={reactLogo} className="framework" alt="React logo" />
           <img src={viteLogo} className="vite" alt="Vite logo" />
@@ -39,7 +48,7 @@ function App() {
         </button>
       </section>
 
-      <div className={`ticks ${theme}`}></div>
+        <div className="ticks"></div>
 
       <section id="next-steps">
         <div id="docs">
@@ -122,7 +131,7 @@ function App() {
         </div>
       </section>
 
-      <div className={`ticks ${theme}`}></div>
+      <div className="ticks"></div>
       <section id="spacer"></section>
     </>
   )
