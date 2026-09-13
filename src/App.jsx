@@ -19,13 +19,6 @@ function App() {
   }, [theme]);
 
 
-  // inside the App function, above return:
-  useEffect(() => {
-    supabase.from('inventory_items').select('*').then(({ data, error }) => {
-      console.log('inventory_items:', data, error)
-    })
-  }, [])
-
   return (
     <>
       <section id="center">
