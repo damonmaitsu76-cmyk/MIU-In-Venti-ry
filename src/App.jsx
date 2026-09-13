@@ -11,7 +11,7 @@ function App() {
         </div>
         <div>
           <h1>MIU In-Venti-ry</h1>
-          <p>Ingredient tracking for Miu Matcha Cafe</p>
+          <p>Ingredient tracking test for Miu Matcha Cafe</p>
         </div>
       </section>
 
