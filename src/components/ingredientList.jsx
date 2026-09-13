@@ -30,7 +30,7 @@ export default function IngredientList() {
 
   useEffect(() => { loadItems() }, [])
 
-  if (loading) return <p className="p-6 text-muted-foreground">Loading ingredients…</p>
+  if (loading) return <p className="p-6 text-muted-foreground">Loading...</p>
   if (errorMsg) return <p className="p-6 text-destructive">Error: {errorMsg}</p>
 
   return (
