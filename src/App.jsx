@@ -2,6 +2,7 @@ import heroImg from './assets/hero.png'
 import IngredientList from './components/IngredientList'
 import './App.css'
 
+
 function App() {
   return (
     <>
@@ -11,7 +12,7 @@ function App() {
         </div>
         <div>
           <h1>MIU In-Venti-ry</h1>
-          <p>Ingredient tracking test for Miu Matcha Cafe</p>
+          <p>Ingredient tracking test for Miu In-Venti-Ry!!!</p>
         </div>
       </section>
 
