@@ -1,5 +1,5 @@
 import heroImg from './assets/hero.png'
-import IngredientList from './components/IngredientList'
+import IngredientList from './components/ingredientList'
 import './App.css'
 
 
