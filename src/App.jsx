@@ -3,6 +3,7 @@ import heroImg from './assets/hero.png'
 import reactLogo from './assets/react.svg'
 import viteLogo from './assets/vite.svg'
 import './App.css'
+import { supabase } from './supabaseClient'
 
 function App() {
   const [count, setCount] = useState(0)
@@ -16,6 +17,14 @@ function App() {
       root.classList.remove('dark');
     }
   }, [theme]);
+
+
+  // inside the App function, above return:
+  useEffect(() => {
+    supabase.from('inventory_items').select('*').then(({ data, error }) => {
+      console.log('inventory_items:', data, error)
+    })
+  }, [])
 
   return (
     <>
@@ -48,7 +57,7 @@ function App() {
         </button>
       </section>
 
-        <div className="ticks"></div>
+      <div className="ticks"></div>
 
       <section id="next-steps">
         <div id="docs">
