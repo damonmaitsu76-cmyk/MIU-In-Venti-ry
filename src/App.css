@@ -59,6 +59,7 @@
 #center {
   display: flex;
   flex-direction: column;
+  min-height: 100svh;
   gap: 25px;
   place-content: center;
   place-items: center;

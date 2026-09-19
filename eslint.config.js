@@ -5,7 +5,9 @@ import reactRefresh from 'eslint-plugin-react-refresh'
 import { defineConfig, globalIgnores } from 'eslint/config'
 
 export default defineConfig([
-  globalIgnores(['dist']),
+  // shadcn generates these primitive wrappers; keep lint focused on the app
+  // and feature components rather than modifying generated implementation code.
+  globalIgnores(['dist', 'src/components/ui/**']),
   {
     files: ['**/*.{js,jsx}'],
     extends: [
