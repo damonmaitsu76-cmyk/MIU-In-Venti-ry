@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Boxes, ClipboardList, LogOut, Package, ShoppingCart } from 'lucide-react'
 import { supabase } from './supabaseClient'
-import IngredientList from './components/ingredientList'
+import IngredientList from './components/IngredientList'
 import Login from './components/Login'
 import OrderEntry from './components/OrderEntry'
 import ProductDashboard from './components/ProductDashboard'
