@@ -1,0 +1,5 @@
+-- OPTIONAL DEVELOPMENT-ONLY UI aid.
+-- PLACEHOLDER QUANTITIES — FOR UI TESTING ONLY, NEVER SHIP.
+-- This checkout has no authoritative product/recipe mapping. Do not create fake
+-- menu rows here; use this file as the explicit reminder to add test data only
+-- after the developer confirms a disposable database and the intended products.
