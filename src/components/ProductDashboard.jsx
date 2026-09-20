@@ -1,25 +1,31 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { ImageIcon, Plus, Trash2 } from 'lucide-react'
 import { supabase } from '@/supabaseClient'
 import { Button } from '@/components/ui/button'
-import {
-  Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
-} from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Badge } from '@/components/ui/badge'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
-import { formatPrice } from '@/lib/formatPrice'
-import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
-} from '@/components/ui/table'
+import ImageUpload from '@/components/ImageUpload'
+import ItemSelect from '@/components/ItemSelect'
+import NumberField from '@/components/NumberField'
+import { formatPeso } from '@/lib/format'
+import { imageUrlFor, uploadProductImage } from '@/lib/images'
+import { parseAmount } from '@/lib/numbers'
+import { canBeInRecipe, recipeUnitLabel } from '@/lib/units'
 
 const emptyRecipeRow = () => ({ key: crypto.randomUUID(), inventory_item_id: '', quantity_required: '' })
 
+async function fetchProductDashboard() {
+  return Promise.all([
+    supabase.from('products').select('*').order('product_name', { ascending: true }),
+    supabase.from('inventory_items').select('*').order('item_name', { ascending: true }),
+  ])
+}
+
 export default function ProductDashboard() {
   const [products, setProducts] = useState([])
-  const [ingredients, setIngredients] = useState([])
+  const [inventory, setInventory] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -27,336 +33,105 @@ export default function ProductDashboard() {
 
   async function loadDashboard() {
     setLoading(true)
-    const [productsResult, ingredientsResult] = await Promise.all([
-      supabase.from('products').select('*').order('product_name', { ascending: true }),
-      supabase.from('inventory_items').select('inventory_item_id, item_name, unit').order('item_name', { ascending: true }),
-    ])
-
-    const loadError = productsResult.error || ingredientsResult.error
+    const [productsResult, inventoryResult] = await fetchProductDashboard()
+    const loadError = productsResult.error || inventoryResult.error
     if (loadError) setError(loadError.message)
-    else {
-      setProducts(productsResult.data || [])
-      setIngredients(ingredientsResult.data || [])
-      setError(null)
-    }
+    else { setProducts(productsResult.data || []); setInventory(inventoryResult.data || []); setError(null) }
     setLoading(false)
   }
 
   useEffect(() => {
     let cancelled = false
-
     async function loadInitialDashboard() {
-      const [productsResult, ingredientsResult] = await Promise.all([
-        supabase.from('products').select('*').order('product_name', { ascending: true }),
-        supabase.from('inventory_items').select('inventory_item_id, item_name, unit').order('item_name', { ascending: true }),
-      ])
+      const [productsResult, inventoryResult] = await fetchProductDashboard()
       if (cancelled) return
-
-      const loadError = productsResult.error || ingredientsResult.error
+      const loadError = productsResult.error || inventoryResult.error
       if (loadError) setError(loadError.message)
-      else {
-        setProducts(productsResult.data || [])
-        setIngredients(ingredientsResult.data || [])
-        setError(null)
-      }
+      else { setProducts(productsResult.data || []); setInventory(inventoryResult.data || []); setError(null) }
       setLoading(false)
     }
-
     loadInitialDashboard()
     return () => { cancelled = true }
   }, [])
+  function openNewProduct() { setSelectedProduct(null); setDialogOpen(true) }
+  function openEditProduct(product) { setSelectedProduct(product); setDialogOpen(true) }
 
-  function openNewProduct() {
-    setSelectedProduct(null)
-    setDialogOpen(true)
-  }
-
-  function openEditProduct(product) {
-    setSelectedProduct(product)
-    setDialogOpen(true)
-  }
-
-  return (
-    <section className="mx-auto max-w-7xl text-left">
-      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h1 className="m-0 text-2xl font-semibold tracking-tight text-foreground">Products</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Manage menu items and the inventory recipe behind each one.</p>
-        </div>
-        <Button onClick={openNewProduct}><Plus />Add product</Button>
-      </div>
-
-      {error && <p className="mb-4 rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">{error}</p>}
-
-      <div className="rounded-lg border border-border bg-card">
-        {loading ? (
-          <p className="p-6 text-sm text-muted-foreground">Loading products…</p>
-        ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Image</TableHead>
-                <TableHead>Name</TableHead>
-                <TableHead>Price</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {products.map((product) => (
-                <TableRow key={product.product_id}>
-                  <TableCell><ProductThumbnail product={product} /></TableCell>
-                  <TableCell className="font-medium text-foreground">{product.product_name}</TableCell>
-                  <TableCell>{formatPrice(product.price)}</TableCell>
-                  <TableCell><Badge variant={product.is_active ? 'default' : 'secondary'}>{product.is_active ? 'Active' : 'Inactive'}</Badge></TableCell>
-                  <TableCell className="text-right"><Button variant="outline" size="sm" onClick={() => openEditProduct(product)}>Edit</Button></TableCell>
-                </TableRow>
-              ))}
-              {!products.length && <TableRow><TableCell colSpan={5} className="py-10 text-center text-muted-foreground">No products yet. Add a product and its recipe to make it orderable.</TableCell></TableRow>}
-            </TableBody>
-          </Table>
-        )}
-      </div>
-
-      {dialogOpen && <ProductDialog
-        key={selectedProduct?.product_id ?? 'new'}
-        open={dialogOpen}
-        onOpenChange={setDialogOpen}
-        product={selectedProduct}
-        ingredients={ingredients}
-        onSaved={loadDashboard}
-      />}
-    </section>
-  )
+  return <section className="mx-auto max-w-7xl text-left"><div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between"><div><h1 className="text-2xl font-semibold tracking-tight text-foreground">Products</h1><p className="mt-1 text-sm text-muted-foreground">Manage menu items and the inventory recipe behind each one.</p></div><Button onClick={openNewProduct}><Plus />Add product</Button></div>{error && <div className="mb-4 rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive"><p>{error}</p><Button className="mt-2" variant="outline" size="sm" onClick={loadDashboard}>Retry</Button></div>}{loading ? <div className="grid gap-2 rounded-xl border p-4"><div className="h-12 animate-pulse rounded bg-muted" /><div className="h-12 animate-pulse rounded bg-muted" /></div> : <div className="overflow-hidden rounded-xl border border-border bg-card"><table className="w-full text-sm"><thead className="border-b"><tr><th className="h-10 px-4 text-left font-medium">Image</th><th className="px-4 text-left font-medium">Name</th><th className="px-4 text-left font-medium">Price</th><th className="px-4 text-left font-medium">Status</th><th className="px-4 text-right font-medium">Actions</th></tr></thead><tbody>{products.map((product) => <tr key={product.product_id} className="border-b last:border-0 hover:bg-muted/40"><td className="p-4"><ProductThumbnail product={product} /></td><td className="p-4 font-medium text-foreground">{product.product_name}</td><td className="p-4 tabular-nums">{formatPeso(product.price)}</td><td className="p-4"><span className={product.is_active ? 'text-emerald-700' : 'text-muted-foreground'}>{product.is_active ? 'Active' : 'Archived'}</span></td><td className="p-4 text-right"><Button variant="outline" size="sm" onClick={() => openEditProduct(product)}>Edit</Button></td></tr>)}{!products.length && <tr><td colSpan={5} className="p-10 text-center text-muted-foreground">No products yet. Add a product and its recipe to make it orderable.</td></tr>}</tbody></table></div>}<Dialog open={dialogOpen} onOpenChange={setDialogOpen}>{dialogOpen && <ProductDialog key={selectedProduct?.product_id ?? 'new'} product={selectedProduct} inventory={inventory} onClose={() => setDialogOpen(false)} onSaved={loadDashboard} />}</Dialog></section>
 }
 
-function ProductDialog({ open, onOpenChange, product, ingredients, onSaved }) {
+function ProductDialog({ product, inventory, onClose, onSaved }) {
   const [name, setName] = useState(product?.product_name || '')
-  const [price, setPrice] = useState(product?.price ?? '')
-  const [imageUrl, setImageUrl] = useState(product?.image_url || '')
+  const [price, setPrice] = useState(product?.price == null ? '' : String(product.price))
   const [active, setActive] = useState(product?.is_active ?? true)
-  const [recipeRows, setRecipeRows] = useState([emptyRecipeRow()])
+  const [ingredientRows, setIngredientRows] = useState([emptyRecipeRow()])
+  const [materialRows, setMaterialRows] = useState([])
   const [loadingRecipe, setLoadingRecipe] = useState(Boolean(product))
+  const [imageFile, setImageFile] = useState(null)
+  const [imageRemoved, setImageRemoved] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
 
-  useEffect(() => {
-    if (!product) return
+  const ingredientItems = useMemo(() => inventory.filter((item) => item.item_type === 'ingredient'), [inventory])
+  const materialItems = useMemo(() => inventory.filter((item) => item.item_type === 'material'), [inventory])
+  const selectedIds = [...ingredientRows, ...materialRows].map((row) => String(row.inventory_item_id)).filter(Boolean)
 
+  useEffect(() => {
+    if (!product) return undefined
     let cancelled = false
     async function loadRecipe() {
-      const { data: recipes, error: recipeError } = await supabase
-        .from('recipes')
-        .select('recipe_id')
-        .eq('product_id', product.product_id)
-        .order('recipe_id', { ascending: true })
-
-      if (recipeError) {
-        if (!cancelled) setError(recipeError.message)
-        if (!cancelled) setLoadingRecipe(false)
-        return
-      }
-
-      const recipeId = recipes?.[0]?.recipe_id
-      if (!recipeId) {
-        if (!cancelled) {
-          setRecipeRows([emptyRecipeRow()])
-          setLoadingRecipe(false)
-        }
-        return
-      }
-
-      const { data: rows, error: rowsError } = await supabase
-        .from('recipe_items')
-        .select('inventory_item_id, quantity_required')
-        .eq('recipe_id', recipeId)
-
-      if (!cancelled) {
-        if (rowsError) setError(rowsError.message)
-        else setRecipeRows(rows?.length ? rows.map((row) => ({ ...row, key: crypto.randomUUID() })) : [emptyRecipeRow()])
-        setLoadingRecipe(false)
-      }
+      const { data: recipe, error: recipeError } = await supabase.from('recipes').select('recipe_id, recipe_items(inventory_item_id, quantity_required)').eq('product_id', product.product_id).maybeSingle()
+      if (cancelled) return
+      if (recipeError) { setError(recipeError.message); setLoadingRecipe(false); return }
+      const rows = recipe?.recipe_items || []
+      const hydrated = rows.map((row) => ({ ...row, key: crypto.randomUUID() }))
+      const nextIngredients = hydrated.filter((row) => inventory.find((item) => item.inventory_item_id === row.inventory_item_id)?.item_type !== 'material')
+      const nextMaterials = hydrated.filter((row) => inventory.find((item) => item.inventory_item_id === row.inventory_item_id)?.item_type === 'material')
+      setIngredientRows(nextIngredients.length ? nextIngredients : [emptyRecipeRow()])
+      setMaterialRows(nextMaterials)
+      setLoadingRecipe(false)
     }
     loadRecipe()
     return () => { cancelled = true }
-  }, [product])
+  }, [inventory, product])
 
-  function closeDialog(nextOpen) {
-    if (!nextOpen && !saving) onOpenChange(false)
-  }
-
-  function updateRecipeRow(key, field, value) {
-    setRecipeRows((rows) => rows.map((row) => row.key === key ? { ...row, [field]: value } : row))
-  }
-
-  function removeRecipeRow(key) {
-    setRecipeRows((rows) => rows.length > 1 ? rows.filter((row) => row.key !== key) : [emptyRecipeRow()])
-  }
-
-  async function handleSave(event) {
+  function changeRow(setRows, key, field, value) { setRows((rows) => rows.map((row) => row.key === key ? { ...row, [field]: value } : row)) }
+  function removeRow(setRows, key, keepOne) { setRows((rows) => { const next = rows.filter((row) => row.key !== key); return keepOne && !next.length ? [emptyRecipeRow()] : next }) }
+  async function save(event) {
     event.preventDefault()
-    const normalizedRows = recipeRows
-      .filter((row) => row.inventory_item_id !== '' || row.quantity_required !== '')
-      .map((row) => ({
-        inventory_item_id: Number(row.inventory_item_id),
-        quantity_required: Number(row.quantity_required),
-      }))
-
-    if (!name.trim()) {
-      setError('Product name is required.')
-      return
+    const combinedRows = [...ingredientRows, ...materialRows].filter((row) => row.inventory_item_id || row.quantity_required)
+    const normalizedRows = combinedRows.map((row) => ({ inventory_item_id: Number(row.inventory_item_id), quantity_required: parseAmount(row.quantity_required) }))
+    const normalizedIngredients = ingredientRows.filter((row) => row.inventory_item_id || row.quantity_required)
+    if (!name.trim()) return setError('Product name is required.')
+    if (parseAmount(price) == null || parseAmount(price) < 0) return setError('Enter a valid price.')
+    if (!normalizedIngredients.length) return setError('Add at least one ingredient.')
+    if (normalizedRows.some((row) => !Number.isInteger(row.inventory_item_id) || row.inventory_item_id <= 0 || row.quantity_required == null || row.quantity_required <= 0)) return setError('Every selected item needs a positive amount.')
+    if (new Set(normalizedRows.map((row) => row.inventory_item_id)).size !== normalizedRows.length) return setError('Use each item only once in a recipe.')
+    if (normalizedRows.some((row) => !canBeInRecipe(inventory.find((item) => item.inventory_item_id === row.inventory_item_id)))) return setError('Whole-package items cannot be used in recipes. Set pieces per pkg first.')
+    setSaving(true); setError(null)
+    let uploadedPath = null
+    try {
+      uploadedPath = imageFile ? await uploadProductImage(imageFile) : null
+      const imagePath = imageRemoved ? null : uploadedPath || product?.image_path || null
+      const { error: saveError } = await supabase.rpc('save_product', { p_product_id: product?.product_id ?? null, p_name: name.trim(), p_price: parseAmount(price), p_image_path: imagePath, p_is_active: active, p_items: normalizedRows })
+      if (saveError) throw saveError
+      const oldPath = product?.image_path
+      if (oldPath && oldPath !== imagePath) await supabase.storage.from('product-images').remove([oldPath])
+      setSaving(false); onClose(); onSaved()
+    } catch (saveError) {
+      if (uploadedPath) await supabase.storage.from('product-images').remove([uploadedPath])
+      setSaving(false); setError(saveError.message || 'Could not save this product.')
     }
-    if (!Number.isFinite(Number(price)) || Number(price) < 0 || price === '') {
-      setError('Enter a valid price.')
-      return
-    }
-    if (!normalizedRows.length) {
-      setError('Add at least one ingredient to the recipe.')
-      return
-    }
-    if (normalizedRows.some((row) => !Number.isInteger(row.inventory_item_id) || row.inventory_item_id <= 0 || !Number.isFinite(row.quantity_required) || row.quantity_required <= 0)) {
-      setError('Every recipe row needs an ingredient and a positive quantity.')
-      return
-    }
-    if (new Set(normalizedRows.map((row) => row.inventory_item_id)).size !== normalizedRows.length) {
-      setError('Use each ingredient only once in a recipe.')
-      return
-    }
-
-    setSaving(true)
-    setError(null)
-    const productFields = {
-      product_name: name.trim(),
-      price: Number(price),
-      image_url: imageUrl.trim() || null,
-      is_active: active,
-    }
-    const productResult = product
-      ? await supabase.from('products').update(productFields).eq('product_id', product.product_id).select().single()
-      : await supabase.from('products').insert(productFields).select().single()
-
-    if (productResult.error) {
-      setSaving(false)
-      setError(productResult.error.message)
-      return
-    }
-
-    const savedProduct = productResult.data
-    const { data: existingRecipes, error: existingRecipesError } = await supabase
-      .from('recipes')
-      .select('recipe_id')
-      .eq('product_id', savedProduct.product_id)
-      .order('recipe_id', { ascending: true })
-
-    if (existingRecipesError) {
-      setSaving(false)
-      setError(existingRecipesError.message)
-      return
-    }
-
-    let recipeId = existingRecipes?.[0]?.recipe_id
-    if (!recipeId) {
-      const { data: newRecipe, error: newRecipeError } = await supabase
-        .from('recipes')
-        .insert({
-          product_id: savedProduct.product_id,
-          // recipe_name is required by the existing database schema. Product
-          // names are the source of truth for the staff-facing label.
-          recipe_name: `${savedProduct.product_name} recipe`,
-        })
-        .select()
-        .single()
-      if (newRecipeError) {
-        setSaving(false)
-        setError(newRecipeError.message)
-        return
-      }
-      recipeId = newRecipe.recipe_id
-    } else {
-      const { error: recipeNameError } = await supabase
-        .from('recipes')
-        .update({ recipe_name: `${savedProduct.product_name} recipe` })
-        .eq('recipe_id', recipeId)
-      if (recipeNameError) {
-        setSaving(false)
-        setError(recipeNameError.message)
-        return
-      }
-    }
-
-    const existingRecipeIds = existingRecipes?.map((recipe) => recipe.recipe_id) || [recipeId]
-    const { error: deleteError } = await supabase
-      .from('recipe_items')
-      .delete()
-      .in('recipe_id', existingRecipeIds)
-    if (deleteError) {
-      setSaving(false)
-      setError(deleteError.message)
-      return
-    }
-
-    if (normalizedRows.length) {
-      const { error: insertRowsError } = await supabase
-        .from('recipe_items')
-        .insert(normalizedRows.map((row) => ({ ...row, recipe_id: recipeId })))
-      if (insertRowsError) {
-        setSaving(false)
-        setError(insertRowsError.message)
-        return
-      }
-    }
-
-    setSaving(false)
-    onOpenChange(false)
-    onSaved()
   }
 
-  return (
-    <Dialog open={open} onOpenChange={closeDialog}>
-      <DialogContent className="max-h-[calc(100vh-2rem)] max-w-2xl overflow-y-auto">
-        <DialogHeader><DialogTitle>{product ? 'Edit product' : 'Add product'}</DialogTitle></DialogHeader>
-        <form onSubmit={handleSave} className="grid gap-6">
-          <fieldset className="grid gap-4">
-            <legend className="text-sm font-medium text-foreground">Product details</legend>
-            <div className="grid gap-1.5"><Label htmlFor="product-name">Name</Label><Input id="product-name" value={name} onChange={(event) => setName(event.target.value)} /></div>
-            <div className="grid gap-1.5"><Label htmlFor="product-price">Price</Label><Input id="product-price" type="number" min="0" step="0.01" value={price} onChange={(event) => setPrice(event.target.value)} /></div>
-            <div className="grid gap-1.5"><Label htmlFor="product-image">Image URL</Label><Input id="product-image" type="url" value={imageUrl} onChange={(event) => setImageUrl(event.target.value)} placeholder="https://…" /></div>
-            <div className="flex items-center gap-2"><Switch id="product-active" checked={active} onCheckedChange={setActive} /><Label htmlFor="product-active" className="cursor-pointer text-sm font-normal">Active and available to order</Label></div>
-          </fieldset>
+  return <DialogContent className="max-w-3xl"><DialogHeader><DialogTitle>{product ? 'Edit product' : 'Add product'}</DialogTitle></DialogHeader><form onSubmit={save} className="grid gap-6"><fieldset className="grid gap-4"><legend className="text-base font-semibold text-foreground">Details</legend><div className="grid gap-4 sm:grid-cols-2"><div className="grid gap-1.5"><Label htmlFor="product-name">Name</Label><Input id="product-name" value={name} onChange={(event) => setName(event.target.value)} /></div><div className="grid gap-1.5"><Label htmlFor="product-price">Price</Label><NumberField id="product-price" value={price} onValueChange={setPrice} min={0} decimals={2} suffix="₱" /></div></div><div className="grid gap-1.5"><Label>Image</Label><ImageUpload product={imageRemoved ? null : product} file={imageFile} onFileChange={(file) => { setImageFile(file); setImageRemoved(false) }} onRemove={() => { setImageFile(null); setImageRemoved(true) }} disabled={saving} /></div><div className="flex items-center gap-2"><Switch id="product-active" checked={active} onCheckedChange={setActive} /><Label htmlFor="product-active" className="cursor-pointer font-normal">Active and available to order</Label></div></fieldset>{loadingRecipe ? <p className="text-sm text-muted-foreground">Loading recipe…</p> : <><RecipeSection title="Ingredients" description="These are the drink's consumable ingredients." rows={ingredientRows} items={ingredientItems} selectedIds={selectedIds} onAdd={() => setIngredientRows((rows) => [...rows, emptyRecipeRow()])} onUpdate={(key, field, value) => changeRow(setIngredientRows, key, field, value)} onRemove={(key) => removeRow(setIngredientRows, key, true)} keepOne /><RecipeSection title="Materials" description="Materials can be included only when tracked by piece. Whole-package items are unavailable until converted." rows={materialRows} items={materialItems} selectedIds={selectedIds} onAdd={() => setMaterialRows((rows) => [...rows, emptyRecipeRow()])} onUpdate={(key, field, value) => changeRow(setMaterialRows, key, field, value)} onRemove={(key) => removeRow(setMaterialRows, key, false)} /></>}{error && <p className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive" role="alert">{error}</p>}<DialogFooter><Button type="submit" disabled={saving || loadingRecipe}>{saving ? 'Saving…' : 'Save product and recipe'}</Button></DialogFooter></form></DialogContent>
+}
 
-          <fieldset className="grid gap-3">
-            <legend className="sr-only">Recipe</legend>
-            <div className="flex items-center justify-between gap-3">
-              <div><p className="text-sm font-medium text-foreground">Recipe</p><p className="text-xs text-muted-foreground">Amounts are consumed for each product sold.</p></div>
-              <Button type="button" variant="outline" size="sm" onClick={() => setRecipeRows((rows) => [...rows, emptyRecipeRow()])}><Plus />Add ingredient row</Button>
-            </div>
-            {loadingRecipe ? <p className="text-sm text-muted-foreground">Loading recipe…</p> : recipeRows.map((row, index) => (
-              <div key={row.key} className="grid grid-cols-[minmax(0,1fr)_8rem_auto] items-end gap-2">
-                <div className="grid gap-1.5">
-                  <Label htmlFor={`recipe-item-${row.key}`}>Ingredient {index + 1}</Label>
-                  <Select value={String(row.inventory_item_id)} onValueChange={(value) => updateRecipeRow(row.key, 'inventory_item_id', value)}>
-                    <SelectTrigger id={`recipe-item-${row.key}`} className="w-full"><SelectValue placeholder="Choose ingredient" /></SelectTrigger>
-                    <SelectContent>
-                      {ingredients.map((ingredient) => <SelectItem key={ingredient.inventory_item_id} value={String(ingredient.inventory_item_id)}>{ingredient.item_name} ({ingredient.unit})</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="grid gap-1.5"><Label htmlFor={`recipe-quantity-${row.key}`}>Per product</Label><Input id={`recipe-quantity-${row.key}`} type="number" min="0" step="any" value={row.quantity_required} onChange={(event) => updateRecipeRow(row.key, 'quantity_required', event.target.value)} /></div>
-                <Button type="button" variant="ghost" size="icon-sm" className="mb-px text-destructive" onClick={() => removeRecipeRow(row.key)} aria-label={`Remove ingredient ${index + 1}`}><Trash2 /></Button>
-              </div>
-            ))}
-            {!ingredients.length && <p className="text-sm text-muted-foreground">Add inventory ingredients before defining a recipe.</p>}
-          </fieldset>
-
-          {error && <p className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">{error}</p>}
-          <DialogFooter><Button type="submit" disabled={saving || loadingRecipe}>{saving ? 'Saving…' : 'Save product and recipe'}</Button></DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
-  )
+function RecipeSection({ title, description, rows, items, selectedIds, onAdd, onUpdate, onRemove, keepOne }) {
+  return <fieldset className="grid gap-3 rounded-xl border p-4"><legend className="px-1 text-base font-semibold text-foreground">{title}</legend><div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"><p className="text-sm text-muted-foreground">{description}</p><Button type="button" variant="outline" size="sm" onClick={onAdd}><Plus />Add {title === 'Ingredients' ? 'ingredient' : 'material'}</Button></div>{rows.map((row) => { const selected = items.find((item) => String(item.inventory_item_id) === String(row.inventory_item_id)); return <div key={row.key} className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_9rem_auto] sm:items-end"><div className="grid gap-1.5"><Label htmlFor={`recipe-item-${row.key}`}>{selected?.item_name || (title === 'Ingredients' ? 'Ingredient' : 'Material')}</Label><ItemSelect id={`recipe-item-${row.key}`} value={String(row.inventory_item_id)} onValueChange={(value) => onUpdate(row.key, 'inventory_item_id', value)} items={items} filter={title === 'Ingredients' ? 'ingredient' : 'material'} includePkgOnly={title === 'Materials'} disabledValues={selectedIds.filter((id) => id !== String(row.inventory_item_id))} placeholder={`Choose ${title.toLowerCase().slice(0, -1)}`} /></div><div className="grid gap-1.5"><Label htmlFor={`recipe-amount-${row.key}`}>Amount per product</Label><NumberField id={`recipe-amount-${row.key}`} value={row.quantity_required} onValueChange={(value) => onUpdate(row.key, 'quantity_required', value)} min={0} suffix={recipeUnitLabel(selected)} /></div><Button type="button" variant="ghost" size="icon-lg" className="text-destructive" onClick={() => onRemove(row.key)} disabled={keepOne && rows.length === 1} aria-label={`Remove ${selected?.item_name || title}`}><Trash2 /></Button></div>})}{!items.length && <p className="text-sm text-muted-foreground">Add matching inventory items first.</p>}</fieldset>
 }
 
 function ProductThumbnail({ product }) {
-  if (!product.image_url) return <div className="flex size-10 items-center justify-center rounded bg-muted text-muted-foreground"><ImageIcon className="size-4" /></div>
-  return <img className="size-10 rounded object-cover" src={product.image_url} alt="" />
+  const imageUrl = imageUrlFor(product)
+  if (!imageUrl) return <div className="flex size-10 items-center justify-center rounded bg-muted text-muted-foreground"><ImageIcon className="size-4" /></div>
+  return <img className="size-10 rounded object-cover" src={imageUrl} alt="" />
 }
