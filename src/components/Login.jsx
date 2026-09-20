@@ -24,10 +24,10 @@ export default function Login() {
   }
 
   return (
-    <section id="center">
-      <div className="w-full max-w-xs">
-        <h1 className="!text-3xl !my-2">MIU In-Venti-ry</h1>
-        <p className="text-muted-foreground mb-6">Sign in to manage inventory.</p>
+    <section className="flex min-h-screen items-center justify-center bg-muted/30 p-4 sm:p-6">
+      <div className="w-full max-w-sm rounded-xl border bg-card p-6 shadow-sm sm:p-8">
+        <h1 className="text-3xl font-semibold tracking-tight text-foreground">MIU In-Venti-ry</h1>
+        <p className="mt-2 mb-6 text-muted-foreground">Sign in to manage inventory.</p>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4 text-left">
           <div className="flex flex-col gap-1.5">
