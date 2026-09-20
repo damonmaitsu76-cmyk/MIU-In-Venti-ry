@@ -1,86 +1,74 @@
-import { useEffect, useState } from 'react'
-import { Boxes, ClipboardList, LogOut, Package, ShoppingCart } from 'lucide-react'
+import { useCallback, useEffect, useState } from 'react'
+import { Boxes, ClipboardList, LayoutDashboard, LogOut, Package, ShoppingCart } from 'lucide-react'
 import { supabase } from './supabaseClient'
+import Dashboard from './components/Dashboard'
 import IngredientList from './components/IngredientList'
 import Login from './components/Login'
 import OrderEntry from './components/OrderEntry'
 import ProductDashboard from './components/ProductDashboard'
 import { Button } from './components/ui/button'
-import './App.css'
 
 const navigation = [
+  { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { id: 'order', label: 'Order', icon: ShoppingCart },
   { id: 'inventory', label: 'Inventory', icon: Boxes },
-  { id: 'orders', label: 'Order entry', icon: ShoppingCart },
   { id: 'products', label: 'Products', icon: Package },
 ]
 
+function routeFromHash() {
+  const route = window.location.hash.replace(/^#\/?/, '')
+  return navigation.some((entry) => entry.id === route) ? route : 'dashboard'
+}
+
+function useHashRoute() {
+  const [route, setRoute] = useState(routeFromHash)
+  useEffect(() => {
+    if (!window.location.hash) window.location.hash = '/dashboard'
+    const update = () => setRoute(routeFromHash())
+    window.addEventListener('hashchange', update)
+    return () => window.removeEventListener('hashchange', update)
+  }, [])
+  function navigate(nextRoute) { window.location.hash = `/${nextRoute}` }
+  return [route, navigate]
+}
+
 function App() {
-  // undefined = still checking for an existing session, null = signed out
   const [session, setSession] = useState(undefined)
-  const [view, setView] = useState('inventory')
+  const [attentionCount, setAttentionCount] = useState(0)
+  const [view, navigate] = useHashRoute()
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session)
-    })
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, nextSession) => setSession(nextSession)
-    )
-
+    supabase.auth.getSession().then(({ data: { session: nextSession } }) => setSession(nextSession))
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, nextSession) => setSession(nextSession))
     return () => subscription.unsubscribe()
   }, [])
 
-  if (session === undefined) {
-    return <p className="p-6 text-muted-foreground">Loading...</p>
-  }
+  const refreshAttentionCount = useCallback(async () => {
+    if (!session) return
+    const { data } = await supabase.from('inventory_status').select('stock_status').in('stock_status', ['low_stock', 'out_of_stock'])
+    setAttentionCount(data?.length || 0)
+  }, [session])
 
-  if (!session) {
-    return <Login />
-  }
+  useEffect(() => {
+    if (!session) return undefined
+    let cancelled = false
+    async function loadInitialAttentionCount() {
+      const { data } = await supabase.from('inventory_status').select('stock_status').in('stock_status', ['low_stock', 'out_of_stock'])
+      if (!cancelled) setAttentionCount(data?.length || 0)
+    }
+    loadInitialAttentionCount()
+    return () => { cancelled = true }
+  }, [session])
 
-  return (
-    <div className="min-h-screen bg-background text-foreground md:grid md:grid-cols-[15rem_1fr]">
-      <aside className="border-b border-border bg-sidebar p-4 md:min-h-screen md:border-r md:border-b-0">
-        <div className="mb-6 flex items-center gap-2 px-2 text-left">
-          <div className="rounded-md bg-primary p-2 text-primary-foreground"><ClipboardList className="size-5" /></div>
-          <div>
-            <p className="text-sm font-semibold text-foreground">MIU In-Venti-ry</p>
-            <p className="text-xs text-muted-foreground">Cafe operations</p>
-          </div>
-        </div>
+  if (session === undefined) return <p className="p-6 text-muted-foreground">Loading…</p>
+  if (!session) return <Login />
+  const staffName = session.user.email?.split('@')[0] || 'Staff'
+  const currentView = view === 'dashboard' ? <Dashboard onInventoryChanged={refreshAttentionCount} /> : view === 'order' ? <OrderEntry onInventoryChanged={refreshAttentionCount} /> : view === 'inventory' ? <IngredientList onInventoryChanged={refreshAttentionCount} /> : <ProductDashboard />
 
-        <nav className="flex gap-2 overflow-x-auto md:flex-col" aria-label="Main navigation">
-          {navigation.map(({ id, label, icon: Icon }) => (
-            <Button
-              key={id}
-              variant={view === id ? 'secondary' : 'ghost'}
-              className="shrink-0 justify-start"
-              onClick={() => setView(id)}
-            >
-              <Icon />
-              {label}
-            </Button>
-          ))}
-        </nav>
-
-        <Button
-          variant="ghost"
-          className="mt-4 w-full justify-start md:mt-10"
-          onClick={() => supabase.auth.signOut()}
-        >
-          <LogOut />
-          Sign out
-        </Button>
-      </aside>
-
-      <main className="min-w-0 p-4 sm:p-6 lg:p-8">
-        {view === 'inventory' && <IngredientList />}
-        {view === 'orders' && <OrderEntry />}
-        {view === 'products' && <ProductDashboard />}
-      </main>
-    </div>
-  )
+  return <div className="min-h-screen bg-background text-foreground md:grid md:grid-cols-[15rem_minmax(0,1fr)]"><aside className="hidden border-r border-sidebar-border bg-sidebar p-4 md:flex md:min-h-screen md:flex-col"><Brand /><nav className="mt-6 grid gap-2" aria-label="Main navigation">{navigation.map(({ id, label, icon: Icon }) => <NavigationButton key={id} active={view === id} label={label} icon={Icon} badge={id === 'dashboard' ? attentionCount : 0} onClick={() => navigate(id)} />)}</nav><div className="mt-auto border-t pt-4"><p className="mb-2 truncate px-2 text-sm text-muted-foreground">{staffName}</p><Button variant="ghost" className="w-full justify-start" onClick={() => supabase.auth.signOut()}><LogOut />Sign out</Button></div></aside><main className="min-w-0 p-4 pb-24 sm:p-6 md:pb-6 lg:p-8"><div className="mb-6 flex items-center justify-between md:hidden"><Brand compact /><Button variant="ghost" size="icon-lg" onClick={() => supabase.auth.signOut()} aria-label="Sign out"><LogOut /></Button></div>{currentView}</main><nav className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-4 border-t bg-background/95 p-2 backdrop-blur md:hidden" aria-label="Main navigation">{navigation.map(({ id, label, icon: Icon }) => <NavigationButton key={id} compact active={view === id} label={label} icon={Icon} badge={id === 'dashboard' ? attentionCount : 0} onClick={() => navigate(id)} />)}</nav></div>
 }
+
+function Brand({ compact = false }) { return <div className="flex items-center gap-2 px-2 text-left"><div className="rounded-md bg-primary p-2 text-primary-foreground"><ClipboardList className="size-5" /></div>{!compact && <div><p className="text-sm font-semibold text-foreground">MIU In-Venti-ry</p><p className="text-xs text-muted-foreground">Cafe operations</p></div>}</div> }
+function NavigationButton({ active, label, icon: Icon, badge, onClick, compact }) { return <Button variant={active ? 'secondary' : 'ghost'} className={compact ? 'relative h-12 flex-col gap-0 px-1 text-[11px]' : 'relative min-h-11 justify-start'} onClick={onClick}><Icon />{label}{badge > 0 && <span className={compact ? 'absolute right-2 top-1 rounded-full bg-destructive px-1.5 text-[10px] text-white' : 'ml-auto rounded-full bg-destructive px-1.5 text-xs text-white'}>{badge}</span>}</Button> }
 
 export default App
