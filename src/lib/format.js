@@ -13,6 +13,36 @@ export function formatManilaDateTime(value) {
   }).format(date)
 }
 
+export function manilaDateString(value = new Date()) {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' }).format(value)
+}
+
+export function dayBoundary(date, end = false) {
+  return `${date}T${end ? '23:59:59.999' : '00:00:00'}+08:00`
+}
+
+export function formatManilaTime(value) {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return 'Unknown time'
+  return new Intl.DateTimeFormat('en-PH', {
+    timeZone: 'Asia/Manila', hour: 'numeric', minute: '2-digit',
+  }).format(date)
+}
+
+export function formatManilaDayHeading(value, now = Date.now()) {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return 'Unknown day'
+  const current = new Date(now)
+  const today = manilaDateString(current)
+  const yesterday = manilaDateString(new Date(current.getTime() - 24 * 60 * 60 * 1000))
+  const dateString = manilaDateString(date)
+  if (dateString === today) return 'Today'
+  if (dateString === yesterday) return 'Yesterday'
+  return new Intl.DateTimeFormat('en-PH', {
+    timeZone: 'Asia/Manila', weekday: 'short', month: 'short', day: 'numeric',
+  }).format(date)
+}
+
 export function formatRelative(value, now = Date.now()) {
   const time = new Date(value).getTime()
   if (!Number.isFinite(time)) return 'Unknown time'
