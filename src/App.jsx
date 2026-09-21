@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Boxes, ClipboardList, LayoutDashboard, LogOut, Package, ShoppingCart } from 'lucide-react'
+import { Boxes, ClipboardList, History, LayoutDashboard, LogOut, Package, ShoppingCart } from 'lucide-react'
+import ActivityLog from './components/ActivityLog'
 import { supabase } from './supabaseClient'
 import Dashboard from './components/Dashboard'
 import IngredientList from './components/IngredientList'
@@ -13,6 +14,7 @@ const navigation = [
   { id: 'order', label: 'Order', icon: ShoppingCart },
   { id: 'inventory', label: 'Inventory', icon: Boxes },
   { id: 'products', label: 'Products', icon: Package },
+  { id: 'activity', label: 'Activity', icon: History },
 ]
 
 function routeFromHash() {
@@ -63,9 +65,9 @@ function App() {
   if (session === undefined) return <p className="p-6 text-muted-foreground">Loading…</p>
   if (!session) return <Login />
   const staffName = session.user.email?.split('@')[0] || 'Staff'
-  const currentView = view === 'dashboard' ? <Dashboard onInventoryChanged={refreshAttentionCount} /> : view === 'order' ? <OrderEntry onInventoryChanged={refreshAttentionCount} /> : view === 'inventory' ? <IngredientList onInventoryChanged={refreshAttentionCount} /> : <ProductDashboard />
+  const currentView = view === 'dashboard' ? <Dashboard onInventoryChanged={refreshAttentionCount} /> : view === 'order' ? <OrderEntry onInventoryChanged={refreshAttentionCount} /> : view === 'inventory' ? <IngredientList onInventoryChanged={refreshAttentionCount} /> : view === 'products' ? <ProductDashboard /> : <ActivityLog />
 
-  return <div className="min-h-screen bg-background text-foreground md:grid md:grid-cols-[15rem_minmax(0,1fr)]"><aside className="hidden border-r border-sidebar-border bg-sidebar p-4 md:flex md:min-h-screen md:flex-col"><Brand /><nav className="mt-6 grid gap-2" aria-label="Main navigation">{navigation.map(({ id, label, icon: Icon }) => <NavigationButton key={id} active={view === id} label={label} icon={Icon} badge={id === 'dashboard' ? attentionCount : 0} onClick={() => navigate(id)} />)}</nav><div className="mt-auto border-t pt-4"><p className="mb-2 truncate px-2 text-sm text-muted-foreground">{staffName}</p><Button variant="ghost" className="w-full justify-start" onClick={() => supabase.auth.signOut()}><LogOut />Sign out</Button></div></aside><main className="min-w-0 p-4 pb-24 sm:p-6 md:pb-6 lg:p-8"><div className="mb-6 flex items-center justify-between md:hidden"><Brand compact /><Button variant="ghost" size="icon-lg" onClick={() => supabase.auth.signOut()} aria-label="Sign out"><LogOut /></Button></div>{currentView}</main><nav className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-4 border-t bg-background/95 p-2 backdrop-blur md:hidden" aria-label="Main navigation">{navigation.map(({ id, label, icon: Icon }) => <NavigationButton key={id} compact active={view === id} label={label} icon={Icon} badge={id === 'dashboard' ? attentionCount : 0} onClick={() => navigate(id)} />)}</nav></div>
+  return <div className="min-h-dvh bg-background text-foreground md:grid md:grid-cols-[15rem_minmax(0,1fr)]"><aside className="hidden border-r border-sidebar-border bg-sidebar p-4 md:sticky md:top-0 md:flex md:h-dvh md:self-start md:flex-col md:overflow-y-auto"><Brand /><nav className="mt-6 grid gap-2" aria-label="Main navigation">{navigation.map(({ id, label, icon: Icon }) => <NavigationButton key={id} active={view === id} label={label} icon={Icon} badge={id === 'dashboard' ? attentionCount : 0} onClick={() => navigate(id)} />)}</nav><div className="mt-auto shrink-0 border-t pt-4"><p className="mb-2 truncate px-2 text-sm text-muted-foreground">{staffName}</p><Button variant="ghost" className="w-full justify-start" onClick={() => supabase.auth.signOut()}><LogOut />Sign out</Button></div></aside><main className="min-w-0 p-4 pb-24 sm:p-6 md:pb-6 lg:p-8"><div className="mb-6 flex items-center justify-between md:hidden"><Brand compact /><Button variant="ghost" size="icon-lg" onClick={() => supabase.auth.signOut()} aria-label="Sign out"><LogOut /></Button></div>{currentView}</main><nav className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-5 border-t bg-background/95 p-2 backdrop-blur md:hidden" aria-label="Main navigation">{navigation.map(({ id, label, icon: Icon }) => <NavigationButton key={id} compact active={view === id} label={label} icon={Icon} badge={id === 'dashboard' ? attentionCount : 0} onClick={() => navigate(id)} />)}</nav></div>
 }
 
 function Brand({ compact = false }) { return <div className="flex items-center gap-2 px-2 text-left"><div className="rounded-md bg-primary p-2 text-primary-foreground"><ClipboardList className="size-5" /></div>{!compact && <div><p className="text-sm font-semibold text-foreground">MIU In-Venti-ry</p><p className="text-xs text-muted-foreground">Cafe operations</p></div>}</div> }
