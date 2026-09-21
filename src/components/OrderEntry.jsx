@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Coffee, ShoppingCart, Trash2, UtensilsCrossed } from 'lucide-react'
 import { supabase } from '@/supabaseClient'
 import { Button } from '@/components/ui/button'
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Dialog, DialogBody, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import ItemSelect from '@/components/ItemSelect'
@@ -11,6 +11,7 @@ import Stepper from '@/components/Stepper'
 import { formatPeso } from '@/lib/format'
 import { imageUrlFor } from '@/lib/images'
 import { parseAmount } from '@/lib/numbers'
+import { fetchPackageBlockedProducts } from '@/lib/recipes'
 import { canBeInRecipe, formatStock } from '@/lib/units'
 
 function productMax(product) {
@@ -19,10 +20,23 @@ function productMax(product) {
 }
 
 async function fetchOrderData() {
-  return Promise.all([
+  const [productsResult, inventoryResult] = await Promise.all([
     supabase.from('product_availability').select('*').eq('is_active', true).order('product_name', { ascending: true }),
     supabase.from('inventory_status').select('*').order('item_name', { ascending: true }),
   ])
+  if (inventoryResult.error) return [productsResult, inventoryResult, { data: new Map(), error: null }]
+  try {
+    return [productsResult, inventoryResult, { data: await fetchPackageBlockedProducts(inventoryResult.data || []), error: null }]
+  } catch (error) {
+    return [productsResult, inventoryResult, { data: new Map(), error }]
+  }
+}
+
+function withPackageBlockedProducts(products, blockedProducts) {
+  return (products || []).map((product) => ({
+    ...product,
+    packageBlockedItemName: blockedProducts.get(String(product.product_id)) || null,
+  }))
 }
 
 export default function OrderEntry({ onInventoryChanged }) {
@@ -39,21 +53,21 @@ export default function OrderEntry({ onInventoryChanged }) {
 
   async function loadOrderData() {
     setLoading(true)
-    const [productsResult, inventoryResult] = await fetchOrderData()
-    const error = productsResult.error || inventoryResult.error
+    const [productsResult, inventoryResult, blockedProductsResult] = await fetchOrderData()
+    const error = productsResult.error || inventoryResult.error || blockedProductsResult.error
     if (error) setLoadError(error.message)
-    else { setProducts(productsResult.data || []); setInventory(inventoryResult.data || []); setLoadError(null) }
+    else { setProducts(withPackageBlockedProducts(productsResult.data, blockedProductsResult.data)); setInventory(inventoryResult.data || []); setLoadError(null) }
     setLoading(false)
   }
 
   useEffect(() => {
     let cancelled = false
     async function loadInitialOrderData() {
-      const [productsResult, inventoryResult] = await fetchOrderData()
+      const [productsResult, inventoryResult, blockedProductsResult] = await fetchOrderData()
       if (cancelled) return
-      const error = productsResult.error || inventoryResult.error
+      const error = productsResult.error || inventoryResult.error || blockedProductsResult.error
       if (error) setLoadError(error.message)
-      else { setProducts(productsResult.data || []); setInventory(inventoryResult.data || []); setLoadError(null) }
+      else { setProducts(withPackageBlockedProducts(productsResult.data, blockedProductsResult.data)); setInventory(inventoryResult.data || []); setLoadError(null) }
       setLoading(false)
     }
     loadInitialOrderData()
@@ -87,18 +101,42 @@ export default function OrderEntry({ onInventoryChanged }) {
     await loadOrderData(); onInventoryChanged?.()
   }
 
-  return <section className="mx-auto max-w-7xl pb-32 text-left lg:pb-0"><div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between"><div><h1 className="text-2xl font-semibold tracking-tight text-foreground">Order entry</h1><p className="mt-1 text-sm text-muted-foreground">Build an order first; inventory is deducted only at checkout.</p></div><Button variant="outline" onClick={() => setCustomOrderOpen(true)}><UtensilsCrossed />Custom order</Button></div><div className="grid min-w-0 gap-6 lg:grid-cols-[minmax(0,1fr)_24rem]"><div className="min-w-0">{loadError && <div className="mb-4 rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive"><p>{loadError}</p><Button className="mt-2" variant="outline" size="sm" onClick={loadOrderData}>Retry</Button></div>}{loading ? <div className="grid grid-cols-[repeat(auto-fill,minmax(16rem,1fr))] gap-4"><div className="h-80 animate-pulse rounded-xl bg-muted" /><div className="h-80 animate-pulse rounded-xl bg-muted" /></div> : <div className="grid grid-cols-[repeat(auto-fill,minmax(16rem,1fr))] gap-4">{products.map((product) => <ProductCard key={product.product_id} product={product} cartQuantity={quantityInCart(product.product_id)} onChangeQuantity={setProductQuantity} />)}{!products.length && <p className="col-span-full rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">There are no active products yet. Add products and recipes in the Products page.</p>}</div>}</div><aside className="hidden h-fit rounded-xl border border-border bg-card p-4 lg:sticky lg:top-6 lg:block"><OrderSummary cart={cart} total={total} checkingOut={checkingOut} checkoutError={checkoutError} checkoutSuccess={checkoutSuccess} onRemove={removeLine} onCheckout={completeOrder} /></aside></div><button type="button" className="fixed inset-x-3 bottom-16 z-30 flex min-h-12 items-center justify-between rounded-xl bg-primary px-4 text-left text-sm font-semibold text-primary-foreground shadow-lg lg:hidden" onClick={() => setMobileOrderOpen(true)}><span>View order · {itemCount} item{itemCount === 1 ? '' : 's'}</span><span>{formatPeso(total)}</span></button><Dialog open={mobileOrderOpen} onOpenChange={setMobileOrderOpen}><DialogContent className="top-auto bottom-0 max-w-none translate-y-0 rounded-b-none sm:max-w-none"><DialogHeader><DialogTitle>Current order</DialogTitle></DialogHeader><OrderSummary cart={cart} total={total} checkingOut={checkingOut} checkoutError={checkoutError} checkoutSuccess={checkoutSuccess} onRemove={removeLine} onCheckout={completeOrder} /></DialogContent></Dialog><CustomOrderDialog open={customOrderOpen} onOpenChange={setCustomOrderOpen} products={products} inventory={inventory} onAdd={addCustomOrder} /></section>
+  return (
+    <section className="mx-auto max-w-7xl pb-32 text-left lg:pb-0">
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div><h1 className="text-2xl font-semibold tracking-tight text-foreground">Order entry</h1><p className="mt-1 text-sm text-muted-foreground">Build an order first; inventory is deducted only at checkout.</p></div>
+        <Button variant="outline" onClick={() => setCustomOrderOpen(true)}><UtensilsCrossed />Custom order</Button>
+      </div>
+      <div className="grid min-w-0 gap-6 lg:grid-cols-[minmax(0,1fr)_24rem]">
+        <div className="min-w-0">
+          {loadError && <div className="mb-4 rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive"><p>{loadError}</p><Button className="mt-2" variant="outline" size="sm" onClick={loadOrderData}>Retry</Button></div>}
+          {loading ? <div className="grid grid-cols-[repeat(auto-fill,minmax(16rem,1fr))] gap-4"><div className="h-80 animate-pulse rounded-xl bg-muted" /><div className="h-80 animate-pulse rounded-xl bg-muted" /></div> : <div className="grid grid-cols-[repeat(auto-fill,minmax(16rem,1fr))] gap-4">{products.map((product) => <ProductCard key={product.product_id} product={product} cartQuantity={quantityInCart(product.product_id)} onChangeQuantity={setProductQuantity} />)}{!products.length && <p className="col-span-full rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">There are no active products yet. Add products and recipes in the Products page.</p>}</div>}
+        </div>
+        <aside className="hidden h-fit rounded-xl border border-border bg-card p-4 lg:sticky lg:top-6 lg:block"><OrderSummary cart={cart} total={total} checkingOut={checkingOut} checkoutError={checkoutError} checkoutSuccess={checkoutSuccess} onRemove={removeLine} onCheckout={completeOrder} /></aside>
+      </div>
+      <button type="button" className="fixed inset-x-3 bottom-16 z-30 flex min-h-12 items-center justify-between rounded-xl bg-primary px-4 text-left text-sm font-semibold text-primary-foreground shadow-lg lg:hidden" onClick={() => setMobileOrderOpen(true)}><span>View order · {itemCount} item{itemCount === 1 ? '' : 's'}</span><span>{formatPeso(total)}</span></button>
+      <Dialog open={mobileOrderOpen} onOpenChange={setMobileOrderOpen}>
+        <DialogContent size="full" className="top-auto bottom-0 translate-y-0 rounded-b-none max-w-none">
+          <DialogHeader><DialogTitle>Current order</DialogTitle></DialogHeader>
+          <DialogBody className="pb-6"><OrderSummary cart={cart} total={total} checkingOut={checkingOut} checkoutError={checkoutError} checkoutSuccess={checkoutSuccess} onRemove={removeLine} onCheckout={completeOrder} /></DialogBody>
+        </DialogContent>
+      </Dialog>
+      <CustomOrderDialog open={customOrderOpen} onOpenChange={setCustomOrderOpen} products={products} inventory={inventory} onAdd={addCustomOrder} />
+    </section>
+  )
 }
 
 function ProductCard({ product, cartQuantity, onChangeQuantity }) {
   const max = productMax(product)
   const noRecipe = max == null
   const noPrice = Number(product.price || 0) <= 0
-  const unavailable = noRecipe || noPrice || max === 0
+  const packageBlocked = Boolean(product.packageBlockedItemName)
+  const unavailable = packageBlocked || noRecipe || noPrice || max === 0
   const imageUrl = imageUrlFor(product)
   let availability = `Up to ${max} available`
   let availabilityClass = 'text-muted-foreground'
-  if (noPrice) availability = 'Set price before ordering'
+  if (packageBlocked) { availability = `Recipe uses ${product.packageBlockedItemName}, which is tracked by whole package — fix it in Products`; availabilityClass = 'text-destructive' }
+  else if (noPrice) availability = 'Set price before ordering'
   else if (noRecipe) availability = 'No recipe yet'
   else if (max === 0) { availability = `Unavailable — out of ${product.limiting_item_name || 'stock'}`; availabilityClass = 'text-destructive' }
   else if (max <= 3) { availability = `Only ${max} left`; availabilityClass = 'text-amber-700' }
@@ -120,7 +158,7 @@ function CustomOrderDialog({ open, onOpenChange, products, inventory, onAdd }) {
   const [originalRows, setOriginalRows] = useState([])
   const [loadingRecipe, setLoadingRecipe] = useState(false)
   const [error, setError] = useState(null)
-  const availableProducts = products.filter((product) => productMax(product) !== null && productMax(product) > 0 && Number(product.price || 0) > 0)
+  const availableProducts = products.filter((product) => !product.packageBlockedItemName && productMax(product) !== null && productMax(product) > 0 && Number(product.price || 0) > 0)
   const selectedProduct = availableProducts.find((product) => String(product.product_id) === String(productId))
   const productItems = Object.fromEntries(availableProducts.map((product) => [String(product.product_id), product.product_name]))
   const selectedIds = rows.map((row) => String(row.inventory_item_id)).filter(Boolean)
@@ -164,5 +202,44 @@ function CustomOrderDialog({ open, onOpenChange, products, inventory, onAdd }) {
     onAdd({ kind: 'custom', key: `custom-${crypto.randomUUID()}`, base_product_id: selectedProduct.product_id, product_name: selectedProduct.product_name, price: Number(selectedProduct.price || 0), quantity: parsedQuantity, ingredients })
     onOpenChange(false); reset()
   }
-  return <Dialog open={open} onOpenChange={(next) => { onOpenChange(next); if (!next) reset() }}><DialogContent className="max-w-3xl"><DialogHeader><DialogTitle>Custom order</DialogTitle></DialogHeader><form onSubmit={addToCart} className="grid gap-5"><p className="text-sm text-muted-foreground">Start from a product recipe, then adjust the ingredients before adding this custom drink to the local order.</p><div className="grid gap-1.5"><Label htmlFor="custom-base">Base product</Label><Select value={productId} onValueChange={(value) => { setProductId(value); setQuantity('1') }} items={productItems}><SelectTrigger id="custom-base" className="w-full"><SelectValue placeholder="Choose a product" /></SelectTrigger><SelectContent>{availableProducts.map((product) => <SelectItem key={product.product_id} value={String(product.product_id)}>{product.product_name}</SelectItem>)}</SelectContent></Select></div>{selectedProduct && <div className="flex flex-wrap items-end gap-3"><div className="grid w-36 gap-1.5"><Label htmlFor="custom-quantity">Quantity</Label><NumberField id="custom-quantity" value={quantity} onValueChange={setQuantity} min={1} decimals={0} /></div><p className="pb-2 text-sm text-muted-foreground">Up to {maxQuantity} based on the edited recipe.</p></div>}{loadingRecipe && <p className="text-sm text-muted-foreground">Loading recipe…</p>}{selectedProduct && !loadingRecipe && <fieldset className="grid gap-3"><div className="flex flex-wrap items-center justify-between gap-2"><div><legend className="text-base font-semibold text-foreground">Ingredients and materials</legend><p className="text-sm text-muted-foreground">Amounts are per drink. Whole-package materials cannot be added.</p></div><div className="flex gap-2"><Button type="button" variant="outline" size="sm" onClick={() => setRows((current) => [...current, { key: crypto.randomUUID(), inventory_item_id: '', amount: '' }])}>+ Add ingredient or material</Button><Button type="button" variant="ghost" size="sm" onClick={resetOriginal} disabled={!originalRows.length}>Reset to original recipe</Button></div></div>{rows.map((row) => { const item = inventory.find((entry) => String(entry.inventory_item_id) === String(row.inventory_item_id)); return <div key={row.key} className="grid gap-2 rounded-lg border p-3 sm:grid-cols-[minmax(0,1fr)_9rem_auto] sm:items-end"><div className="grid gap-1"><Label htmlFor={`custom-item-${row.key}`}>{item?.item_name || 'Item'}{rowChanged(row) && <span className="ml-2 text-xs font-normal text-amber-700">Changed</span>}</Label><ItemSelect id={`custom-item-${row.key}`} value={row.inventory_item_id} onValueChange={(value) => setRow(row.key, 'inventory_item_id', value)} items={inventory.filter(canBeInRecipe)} disabledValues={selectedIds.filter((id) => id !== String(row.inventory_item_id))} includePkgOnly={false} placeholder="Choose ingredient or material" />{item && <p className="text-xs text-muted-foreground">Currently {formatStock(item)} available</p>}</div><div className="grid gap-1.5"><Label htmlFor={`custom-amount-${row.key}`}>Amount per drink ({item?.unit || 'unit'})</Label><NumberField id={`custom-amount-${row.key}`} value={row.amount} onValueChange={(value) => setRow(row.key, 'amount', value)} min={0} suffix={item?.unit} /></div><Button type="button" variant="ghost" size="icon-lg" className="text-destructive" onClick={() => removeRow(row.key)} aria-label={`Remove ${item?.item_name || 'item'}`}><Trash2 /></Button></div>})}{!rows.length && <p className="rounded-md border border-dashed p-4 text-sm text-muted-foreground">Add at least one ingredient or material.</p>}</fieldset>}{error && <p className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive" role="alert">{error}</p>}<DialogFooter><Button type="submit" disabled={!selectedProduct || loadingRecipe}>Add custom drink to order</Button></DialogFooter></form></DialogContent></Dialog>
+  return (
+    <Dialog open={open} onOpenChange={(next) => { onOpenChange(next); if (!next) reset() }}>
+      <DialogContent size="lg">
+        <DialogHeader><DialogTitle>Custom order</DialogTitle></DialogHeader>
+        <form onSubmit={addToCart} className="flex min-h-0 flex-1 flex-col">
+          <DialogBody className="grid gap-5">
+            <p className="text-sm text-muted-foreground">Start from a product recipe, then adjust the ingredients before adding this custom drink to the local order.</p>
+            <div className="grid gap-1.5"><Label htmlFor="custom-base">Base product</Label><Select value={productId} onValueChange={(value) => { setProductId(value); setQuantity('1') }} items={productItems}><SelectTrigger id="custom-base" className="w-full"><SelectValue placeholder="Choose a product" /></SelectTrigger><SelectContent>{availableProducts.map((product) => <SelectItem key={product.product_id} value={String(product.product_id)}>{product.product_name}</SelectItem>)}</SelectContent></Select></div>
+            {selectedProduct && <div className="flex flex-wrap items-end gap-3"><div className="grid w-36 gap-1.5"><Label htmlFor="custom-quantity">Quantity</Label><NumberField id="custom-quantity" value={quantity} onValueChange={setQuantity} min={1} decimals={0} /></div><p className="pb-2 text-sm text-muted-foreground">Up to {maxQuantity} based on the edited recipe.</p></div>}
+            {loadingRecipe && <p className="text-sm text-muted-foreground">Loading recipe…</p>}
+            {selectedProduct && !loadingRecipe && (
+              <fieldset className="grid gap-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div><legend className="text-base font-semibold text-foreground">Ingredients and materials</legend><p className="text-sm text-muted-foreground">Amounts are per drink. Whole-package materials cannot be added.</p></div>
+                  <div className="flex w-full flex-wrap gap-2 sm:w-auto"><Button type="button" variant="outline" size="sm" className="min-h-10 w-full sm:min-h-8 sm:w-auto" onClick={() => setRows((current) => [...current, { key: crypto.randomUUID(), inventory_item_id: '', amount: '' }])}>+ Add ingredient or material</Button><Button type="button" variant="ghost" size="sm" className="min-h-10 w-full sm:min-h-8 sm:w-auto" onClick={resetOriginal} disabled={!originalRows.length}>Reset to original recipe</Button></div>
+                </div>
+                {rows.map((row) => {
+                  const item = inventory.find((entry) => String(entry.inventory_item_id) === String(row.inventory_item_id))
+                  return (
+                    <div key={row.key} className="grid gap-x-3 gap-y-2 rounded-lg border p-3 sm:grid-cols-[minmax(0,1fr)_10rem_2.25rem] sm:items-end">
+                      <div className="grid min-w-0 gap-1">
+                        <Label className="min-w-0" htmlFor={`custom-item-${row.key}`}><span className="truncate">{item?.item_name || 'Item'}</span>{rowChanged(row) && <span className="shrink-0 text-xs font-normal text-amber-700">Changed</span>}</Label>
+                        <ItemSelect id={`custom-item-${row.key}`} value={row.inventory_item_id} onValueChange={(value) => setRow(row.key, 'inventory_item_id', value)} items={inventory.filter(canBeInRecipe)} disabledValues={selectedIds.filter((id) => id !== String(row.inventory_item_id))} includePkgOnly={false} placeholder="Choose ingredient or material" />
+                      </div>
+                      <div className="grid min-w-0 gap-1.5"><Label className="whitespace-nowrap" htmlFor={`custom-amount-${row.key}`}>Amount per drink</Label><NumberField id={`custom-amount-${row.key}`} value={row.amount} onValueChange={(value) => setRow(row.key, 'amount', value)} min={0} suffix={item?.unit} /></div>
+                      <Button type="button" variant="ghost" size="icon" className="justify-self-end text-destructive sm:justify-self-auto" onClick={() => removeRow(row.key)} aria-label={`Remove ${item?.item_name || 'item'}`}><Trash2 /></Button>
+                      {item && <p className="text-xs text-muted-foreground sm:col-span-full">Currently {formatStock(item)} available</p>}
+                    </div>
+                  )
+                })}
+                {!rows.length && <p className="rounded-md border border-dashed p-4 text-sm text-muted-foreground">Add at least one ingredient or material.</p>}
+              </fieldset>
+            )}
+          </DialogBody>
+          {error && <p className="mx-6 mb-3 shrink-0 rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive" role="alert">{error}</p>}
+          <DialogFooter><Button type="submit" disabled={!selectedProduct || loadingRecipe}>Add custom drink to order</Button></DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  )
 }

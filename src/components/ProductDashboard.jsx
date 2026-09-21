@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
-import { ImageIcon, Plus, Trash2 } from 'lucide-react'
+import { ImageIcon, Plus, Trash2, TriangleAlert } from 'lucide-react'
 import { supabase } from '@/supabaseClient'
 import { Button } from '@/components/ui/button'
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Dialog, DialogBody, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
@@ -12,7 +12,7 @@ import NumberField from '@/components/NumberField'
 import { formatPeso } from '@/lib/format'
 import { imageUrlFor, uploadProductImage } from '@/lib/images'
 import { parseAmount } from '@/lib/numbers'
-import { canBeInRecipe, recipeUnitLabel } from '@/lib/units'
+import { canBeInRecipe, isPackTracked, recipeUnitLabel } from '@/lib/units'
 
 const emptyRecipeRow = () => ({ key: crypto.randomUUID(), inventory_item_id: '', quantity_required: '' })
 
@@ -74,6 +74,9 @@ function ProductDialog({ product, inventory, onClose, onSaved }) {
   const ingredientItems = useMemo(() => inventory.filter((item) => item.item_type === 'ingredient'), [inventory])
   const materialItems = useMemo(() => inventory.filter((item) => item.item_type === 'material'), [inventory])
   const selectedIds = [...ingredientRows, ...materialRows].map((row) => String(row.inventory_item_id)).filter(Boolean)
+  const blockedRows = [...ingredientRows, ...materialRows].filter((row) => row.inventory_item_id && !canBeInRecipe(inventory.find((item) => String(item.inventory_item_id) === String(row.inventory_item_id))))
+  const hasBlockedRows = blockedRows.length > 0
+  const displayedError = error || (hasBlockedRows ? 'Fix or remove the highlighted recipe lines before saving.' : null)
 
   useEffect(() => {
     if (!product) return undefined
@@ -106,7 +109,11 @@ function ProductDialog({ product, inventory, onClose, onSaved }) {
     if (!normalizedIngredients.length) return setError('Add at least one ingredient.')
     if (normalizedRows.some((row) => !Number.isInteger(row.inventory_item_id) || row.inventory_item_id <= 0 || row.quantity_required == null || row.quantity_required <= 0)) return setError('Every selected item needs a positive amount.')
     if (new Set(normalizedRows.map((row) => row.inventory_item_id)).size !== normalizedRows.length) return setError('Use each item only once in a recipe.')
-    if (normalizedRows.some((row) => !canBeInRecipe(inventory.find((item) => item.inventory_item_id === row.inventory_item_id)))) return setError('Whole-package items cannot be used in recipes. Set pieces per pkg first.')
+    const blockedItems = normalizedRows.map((row) => inventory.find((item) => item.inventory_item_id === row.inventory_item_id)).filter((item) => !canBeInRecipe(item))
+    if (blockedItems.length) {
+      const names = [...new Set(blockedItems.map((item) => item.item_name))].join(', ')
+      return setError(`${names} ${blockedItems.length === 1 ? 'is' : 'are'} tracked by whole package and can't be part of a recipe. Set pieces per pkg in Inventory first.`)
+    }
     setSaving(true); setError(null)
     let uploadedPath = null
     try {
@@ -123,11 +130,53 @@ function ProductDialog({ product, inventory, onClose, onSaved }) {
     }
   }
 
-  return <DialogContent className="max-w-3xl"><DialogHeader><DialogTitle>{product ? 'Edit product' : 'Add product'}</DialogTitle></DialogHeader><form onSubmit={save} className="grid gap-6"><fieldset className="grid gap-4"><legend className="text-base font-semibold text-foreground">Details</legend><div className="grid gap-4 sm:grid-cols-2"><div className="grid gap-1.5"><Label htmlFor="product-name">Name</Label><Input id="product-name" value={name} onChange={(event) => setName(event.target.value)} /></div><div className="grid gap-1.5"><Label htmlFor="product-price">Price</Label><NumberField id="product-price" value={price} onValueChange={setPrice} min={0} decimals={2} suffix="₱" /></div></div><div className="grid gap-1.5"><Label>Image</Label><ImageUpload product={imageRemoved ? null : product} file={imageFile} onFileChange={(file) => { setImageFile(file); setImageRemoved(false) }} onRemove={() => { setImageFile(null); setImageRemoved(true) }} disabled={saving} /></div><div className="flex items-center gap-2"><Switch id="product-active" checked={active} onCheckedChange={setActive} /><Label htmlFor="product-active" className="cursor-pointer font-normal">Active and available to order</Label></div></fieldset>{loadingRecipe ? <p className="text-sm text-muted-foreground">Loading recipe…</p> : <><RecipeSection title="Ingredients" description="These are the drink's consumable ingredients." rows={ingredientRows} items={ingredientItems} selectedIds={selectedIds} onAdd={() => setIngredientRows((rows) => [...rows, emptyRecipeRow()])} onUpdate={(key, field, value) => changeRow(setIngredientRows, key, field, value)} onRemove={(key) => removeRow(setIngredientRows, key, true)} keepOne /><RecipeSection title="Materials" description="Materials can be included only when tracked by piece. Whole-package items are unavailable until converted." rows={materialRows} items={materialItems} selectedIds={selectedIds} onAdd={() => setMaterialRows((rows) => [...rows, emptyRecipeRow()])} onUpdate={(key, field, value) => changeRow(setMaterialRows, key, field, value)} onRemove={(key) => removeRow(setMaterialRows, key, false)} /></>}{error && <p className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive" role="alert">{error}</p>}<DialogFooter><Button type="submit" disabled={saving || loadingRecipe}>{saving ? 'Saving…' : 'Save product and recipe'}</Button></DialogFooter></form></DialogContent>
+  return (
+    <DialogContent size="lg">
+      <DialogHeader><DialogTitle>{product ? 'Edit product' : 'Add product'}</DialogTitle></DialogHeader>
+      <form onSubmit={save} className="flex min-h-0 flex-1 flex-col">
+        <DialogBody className="grid gap-6">
+          <fieldset className="grid gap-4"><legend className="text-base font-semibold text-foreground">Details</legend><div className="grid gap-4 sm:grid-cols-2"><div className="grid gap-1.5"><Label htmlFor="product-name">Name</Label><Input id="product-name" value={name} onChange={(event) => setName(event.target.value)} /></div><div className="grid gap-1.5"><Label htmlFor="product-price">Price</Label><NumberField id="product-price" value={price} onValueChange={setPrice} min={0} decimals={2} suffix="₱" /></div></div><div className="grid gap-1.5"><Label>Image</Label><ImageUpload product={imageRemoved ? null : product} file={imageFile} onFileChange={(file) => { setImageFile(file); setImageRemoved(false) }} onRemove={() => { setImageFile(null); setImageRemoved(true) }} disabled={saving} /></div><div className="flex items-center gap-2"><Switch id="product-active" checked={active} onCheckedChange={setActive} /><Label htmlFor="product-active" className="cursor-pointer font-normal">Active and available to order</Label></div></fieldset>
+          {loadingRecipe ? <p className="text-sm text-muted-foreground">Loading recipe…</p> : <><RecipeSection title="Ingredients" description="These are the drink's consumable ingredients." rows={ingredientRows} items={ingredientItems} selectedIds={selectedIds} onAdd={() => setIngredientRows((rows) => [...rows, emptyRecipeRow()])} onUpdate={(key, field, value) => changeRow(setIngredientRows, key, field, value)} onRemove={(key) => removeRow(setIngredientRows, key, true)} keepOne /><RecipeSection title="Materials" description="Materials can be added only when tracked by piece. Items tracked by whole package (Cups, Straws, Cellophane, Parchment Paper, Tissue) must first be given a pieces-per-package number in Inventory → Edit → Set pieces per pkg." rows={materialRows} items={materialItems} selectedIds={selectedIds} onAdd={() => setMaterialRows((rows) => [...rows, emptyRecipeRow()])} onUpdate={(key, field, value) => changeRow(setMaterialRows, key, field, value)} onRemove={(key) => removeRow(setMaterialRows, key, false)} /></>}
+        </DialogBody>
+        {displayedError && <p className="mx-6 mb-3 shrink-0 rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive" role="alert">{displayedError}</p>}
+        <DialogFooter><Button type="submit" disabled={saving || loadingRecipe || hasBlockedRows}>{saving ? 'Saving…' : 'Save product and recipe'}</Button></DialogFooter>
+      </form>
+    </DialogContent>
+  )
 }
 
 function RecipeSection({ title, description, rows, items, selectedIds, onAdd, onUpdate, onRemove, keepOne }) {
-  return <fieldset className="grid gap-3 rounded-xl border p-4"><legend className="px-1 text-base font-semibold text-foreground">{title}</legend><div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"><p className="text-sm text-muted-foreground">{description}</p><Button type="button" variant="outline" size="sm" onClick={onAdd}><Plus />Add {title === 'Ingredients' ? 'ingredient' : 'material'}</Button></div>{rows.map((row) => { const selected = items.find((item) => String(item.inventory_item_id) === String(row.inventory_item_id)); return <div key={row.key} className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_9rem_auto] sm:items-end"><div className="grid gap-1.5"><Label htmlFor={`recipe-item-${row.key}`}>{selected?.item_name || (title === 'Ingredients' ? 'Ingredient' : 'Material')}</Label><ItemSelect id={`recipe-item-${row.key}`} value={String(row.inventory_item_id)} onValueChange={(value) => onUpdate(row.key, 'inventory_item_id', value)} items={items} filter={title === 'Ingredients' ? 'ingredient' : 'material'} includePkgOnly={title === 'Materials'} disabledValues={selectedIds.filter((id) => id !== String(row.inventory_item_id))} placeholder={`Choose ${title.toLowerCase().slice(0, -1)}`} /></div><div className="grid gap-1.5"><Label htmlFor={`recipe-amount-${row.key}`}>Amount per product</Label><NumberField id={`recipe-amount-${row.key}`} value={row.quantity_required} onValueChange={(value) => onUpdate(row.key, 'quantity_required', value)} min={0} suffix={recipeUnitLabel(selected)} /></div><Button type="button" variant="ghost" size="icon-lg" className="text-destructive" onClick={() => onRemove(row.key)} disabled={keepOne && rows.length === 1} aria-label={`Remove ${selected?.item_name || title}`}><Trash2 /></Button></div>})}{!items.length && <p className="text-sm text-muted-foreground">Add matching inventory items first.</p>}</fieldset>
+  return (
+    <fieldset className="grid gap-3 rounded-xl border p-4">
+      <legend className="px-1 text-base font-semibold text-foreground">{title}</legend>
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-sm text-muted-foreground">{description}</p>
+        <Button type="button" variant="outline" size="sm" onClick={onAdd}><Plus />Add {title === 'Ingredients' ? 'ingredient' : 'material'}</Button>
+      </div>
+      {rows.map((row) => {
+        const selected = items.find((item) => String(item.inventory_item_id) === String(row.inventory_item_id))
+        const blocked = selected && !canBeInRecipe(selected)
+        const amount = Number(row.quantity_required)
+        const wholePackageAmount = isPackTracked(selected) && Number.isFinite(amount) && amount >= Number(selected.pack_size)
+        return (
+          <div key={row.key} className={`grid gap-x-3 gap-y-2 sm:grid-cols-[minmax(0,1fr)_10rem_2.25rem] sm:items-end ${blocked ? 'rounded-lg border border-destructive/40 bg-destructive/5 p-3' : ''}`}>
+            <div className="grid min-w-0 gap-1.5">
+              <Label className="min-w-0" htmlFor={`recipe-item-${row.key}`}><span className="truncate">{selected?.item_name || (title === 'Ingredients' ? 'Ingredient' : 'Material')}</span></Label>
+              <ItemSelect id={`recipe-item-${row.key}`} value={String(row.inventory_item_id)} onValueChange={(value) => onUpdate(row.key, 'inventory_item_id', value)} items={items} filter={title === 'Ingredients' ? 'ingredient' : 'material'} includePkgOnly={title === 'Materials'} disabledValues={selectedIds.filter((id) => id !== String(row.inventory_item_id))} placeholder={`Choose ${title.toLowerCase().slice(0, -1)}`} />
+            </div>
+            <div className="grid min-w-0 gap-1.5">
+              <Label className="whitespace-nowrap" htmlFor={`recipe-amount-${row.key}`}>Amount per product</Label>
+              <NumberField id={`recipe-amount-${row.key}`} value={row.quantity_required} onValueChange={(value) => onUpdate(row.key, 'quantity_required', value)} min={0} suffix={recipeUnitLabel(selected)} disabled={blocked} />
+            </div>
+            <Button type="button" variant="ghost" size="icon" className="justify-self-end text-destructive sm:justify-self-auto" onClick={() => onRemove(row.key)} disabled={keepOne && rows.length === 1} aria-label={`Remove ${selected?.item_name || title}`}><Trash2 /></Button>
+            {blocked && <p className="flex items-center gap-1.5 text-xs text-destructive sm:col-span-full"><TriangleAlert className="size-4 shrink-0" />{selected.item_name} is tracked by whole package, so one product can't use it. Set its pieces per package in Inventory, or remove this line.</p>}
+            {!blocked && isPackTracked(selected) && <p className={`text-xs sm:col-span-full ${wholePackageAmount ? 'text-amber-800' : 'text-muted-foreground'}`}>1 pkg = {selected.pack_size} pc{wholePackageAmount && ` — That's a whole package or more (${selected.pack_size} pc per pkg). Enter the pieces used by one product.`}</p>}
+          </div>
+        )
+      })}
+      {!items.length && <p className="text-sm text-muted-foreground">Add matching inventory items first.</p>}
+    </fieldset>
+  )
 }
 
 function ProductThumbnail({ product }) {

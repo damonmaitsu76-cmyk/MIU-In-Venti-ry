@@ -41,9 +41,10 @@ export default function ItemSelect({
               const isPkgOnly = item.unit === 'pkg'
               return (
                 <SelectItem key={itemValue} value={itemValue} disabled={disabled.has(itemValue) || isPkgOnly}>
-                  <span>{item.item_name} · {item.unit}</span>
-                  {isPkgOnly && <span className="text-xs text-muted-foreground">Whole pkg only</span>}
-                  {item.current_quantity != null && <span className="text-xs text-muted-foreground">{formatStock(item)} left</span>}
+                  <span className="min-w-0 flex-1 truncate">{item.item_name} · {item.unit}</span>
+                  {isPkgOnly
+                    ? <span className="shrink-0 text-xs text-muted-foreground">Whole packages only — not for recipes</span>
+                    : item.current_quantity != null && <span className="shrink-0 text-xs text-muted-foreground">{formatStock(item)} left</span>}
                 </SelectItem>
               )
             })}

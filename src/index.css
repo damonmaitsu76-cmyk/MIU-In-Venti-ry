@@ -18,6 +18,8 @@
   --secondary-foreground: oklch(0.205 0 0);
   --muted: oklch(0.97 0 0);
   --muted-foreground: oklch(0.556 0 0);
+  --border: oklch(0.922 0 0);
+  --accent: oklch(0.97 0 0);
   --accent-foreground: oklch(0.205 0 0);
   --destructive: oklch(0.577 0.245 27.325);
   --input: oklch(0.922 0 0);
@@ -79,6 +81,14 @@
   --radius-2xl: calc(var(--radius) * 1.8);
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+@utility scroll-thin {
+  scrollbar-width: thin;
+  scrollbar-color: var(--input) transparent;
+  &::-webkit-scrollbar { display: block; width: 6px; height: 6px; }
+  &::-webkit-scrollbar-thumb { background: var(--input); border-radius: 9999px; }
+  &::-webkit-scrollbar-track { background: transparent; }
 }
 
 @layer base {
