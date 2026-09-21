@@ -28,6 +28,7 @@ export default function ProductDashboard() {
   const [inventory, setInventory] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [notice, setNotice] = useState(null)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [selectedProduct, setSelectedProduct] = useState(null)
 
@@ -55,8 +56,42 @@ export default function ProductDashboard() {
   }, [])
   function openNewProduct() { setSelectedProduct(null); setDialogOpen(true) }
   function openEditProduct(product) { setSelectedProduct(product); setDialogOpen(true) }
+  function handleProductDeleted(message) { setNotice(message || null); loadDashboard() }
 
-  return <section className="mx-auto max-w-7xl text-left"><div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between"><div><h1 className="text-2xl font-semibold tracking-tight text-foreground">Products</h1><p className="mt-1 text-sm text-muted-foreground">Manage menu items and the inventory recipe behind each one.</p></div><Button onClick={openNewProduct}><Plus />Add product</Button></div>{error && <div className="mb-4 rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive"><p>{error}</p><Button className="mt-2" variant="outline" size="sm" onClick={loadDashboard}>Retry</Button></div>}{loading ? <div className="grid gap-2 rounded-xl border p-4"><div className="h-12 animate-pulse rounded bg-muted" /><div className="h-12 animate-pulse rounded bg-muted" /></div> : <div className="overflow-hidden rounded-xl border border-border bg-card"><table className="w-full text-sm"><thead className="border-b"><tr><th className="h-10 px-4 text-left font-medium">Image</th><th className="px-4 text-left font-medium">Name</th><th className="px-4 text-left font-medium">Price</th><th className="px-4 text-left font-medium">Status</th><th className="px-4 text-right font-medium">Actions</th></tr></thead><tbody>{products.map((product) => <tr key={product.product_id} className="border-b last:border-0 hover:bg-muted/40"><td className="p-4"><ProductThumbnail product={product} /></td><td className="p-4 font-medium text-foreground">{product.product_name}</td><td className="p-4 tabular-nums">{formatPeso(product.price)}</td><td className="p-4"><span className={product.is_active ? 'text-emerald-700' : 'text-muted-foreground'}>{product.is_active ? 'Active' : 'Archived'}</span></td><td className="p-4 text-right"><Button variant="outline" size="sm" onClick={() => openEditProduct(product)}>Edit</Button></td></tr>)}{!products.length && <tr><td colSpan={5} className="p-10 text-center text-muted-foreground">No products yet. Add a product and its recipe to make it orderable.</td></tr>}</tbody></table></div>}<Dialog open={dialogOpen} onOpenChange={setDialogOpen}>{dialogOpen && <ProductDialog key={selectedProduct?.product_id ?? 'new'} product={selectedProduct} inventory={inventory} onClose={() => setDialogOpen(false)} onSaved={loadDashboard} />}</Dialog></section>
+  return (
+    <section className="mx-auto max-w-7xl text-left">
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between"><div><h1 className="text-2xl font-semibold tracking-tight text-foreground">Products</h1><p className="mt-1 text-sm text-muted-foreground">Manage menu items and the inventory recipe behind each one.</p></div><Button onClick={openNewProduct}><Plus />Add product</Button></div>
+      {error && <div className="mb-4 rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive"><p>{error}</p><Button className="mt-2" variant="outline" size="sm" onClick={loadDashboard}>Retry</Button></div>}
+      {notice && <p className="mb-4 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800" role="status">{notice}</p>}
+      {loading ? <div className="grid gap-2 rounded-xl border p-4"><div className="h-12 animate-pulse rounded bg-muted" /><div className="h-12 animate-pulse rounded bg-muted" /></div> : <div className="overflow-hidden rounded-xl border border-border bg-card"><table className="w-full text-sm"><thead className="border-b"><tr><th className="h-10 px-4 text-left font-medium">Image</th><th className="px-4 text-left font-medium">Name</th><th className="px-4 text-left font-medium">Price</th><th className="px-4 text-left font-medium">Status</th><th className="px-4 text-right font-medium">Actions</th></tr></thead><tbody>{products.map((product) => <tr key={product.product_id} className="border-b last:border-0 hover:bg-muted/40"><td className="p-4"><ProductThumbnail product={product} /></td><td className="p-4 font-medium text-foreground">{product.product_name}</td><td className="p-4 tabular-nums">{formatPeso(product.price)}</td><td className="p-4"><span className={product.is_active ? 'text-emerald-700' : 'text-muted-foreground'}>{product.is_active ? 'Active' : 'Archived'}</span></td><td className="p-4 text-right"><div className="inline-flex gap-2"><Button variant="outline" size="sm" onClick={() => openEditProduct(product)}>Edit</Button><DeleteProductButton product={product} onDeleted={handleProductDeleted} /></div></td></tr>)}{!products.length && <tr><td colSpan={5} className="p-10 text-center text-muted-foreground">No products yet. Add a product and its recipe to make it orderable.</td></tr>}</tbody></table></div>}
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>{dialogOpen && <ProductDialog key={selectedProduct?.product_id ?? 'new'} product={selectedProduct} inventory={inventory} onClose={() => setDialogOpen(false)} onSaved={loadDashboard} />}</Dialog>
+    </section>
+  )
+}
+
+function DeleteProductButton({ product, onDeleted }) {
+  const [open, setOpen] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const [error, setError] = useState(null)
+
+  async function deleteProduct() {
+    setDeleting(true); setError(null)
+    const { error: deleteError } = await supabase.from('products').delete().eq('product_id', product.product_id)
+    if (deleteError) { setDeleting(false); setError('Could not delete this product. Please try again.'); return }
+    let cleanupMessage = null
+    if (product.image_path) {
+      const { error: imageError } = await supabase.storage.from('product-images').remove([product.image_path])
+      if (imageError) cleanupMessage = 'Product deleted, but its image could not be removed.'
+    }
+    setDeleting(false); setOpen(false); onDeleted(cleanupMessage)
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={(nextOpen) => { if (!deleting) { setOpen(nextOpen); if (!nextOpen) setError(null) } }}>
+      <Button type="button" variant="destructive" size="sm" onClick={() => setOpen(true)}><Trash2 />Delete</Button>
+      {open && <DialogContent size="sm" showCloseButton={!deleting}><DialogHeader><DialogTitle>Delete {product.product_name}?</DialogTitle></DialogHeader><DialogBody className="grid gap-3"><p className="text-sm text-muted-foreground">This permanently removes the product and its recipe. This can’t be undone.</p>{error && <p className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive" role="alert">{error}</p>}</DialogBody><DialogFooter><Button type="button" variant="outline" onClick={() => setOpen(false)} disabled={deleting}>Cancel</Button><Button type="button" variant="destructive" onClick={deleteProduct} disabled={deleting}>{deleting ? 'Deleting…' : 'Delete product'}</Button></DialogFooter></DialogContent>}
+    </Dialog>
+  )
 }
 
 function ProductDialog({ product, inventory, onClose, onSaved }) {

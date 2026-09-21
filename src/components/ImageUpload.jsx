@@ -29,18 +29,18 @@ export default function ImageUpload({ product, onFileChange, onRemove, disabled 
   }
 
   return (
-    <div className="grid gap-2">
-      <div className="flex aspect-[4/3] max-w-sm items-center justify-center overflow-hidden rounded-lg border border-dashed border-border bg-muted">
+    <div className="grid justify-items-center gap-2">
+      <div className="flex aspect-[4/3] w-full max-w-sm items-center justify-center overflow-hidden rounded-lg border border-dashed border-border bg-muted">
         {imageUrl ? <img src={imageUrl} alt="Product preview" className="size-full object-cover" /> : <ImageIcon className="size-9 text-muted-foreground" />}
       </div>
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap justify-center gap-2">
         <label className="inline-flex h-10 cursor-pointer items-center justify-center gap-1.5 rounded-md border border-border bg-background px-3 text-sm font-medium text-foreground shadow-xs hover:bg-muted">
           <Upload className="size-4" />Choose image
           <input className="sr-only" type="file" accept="image/jpeg,image/png,image/webp" onChange={chooseFile} disabled={disabled} />
         </label>
         {imageUrl && <Button type="button" variant="outline" size="lg" onClick={remove} disabled={disabled}><Trash2 />Remove</Button>}
       </div>
-      <p className="text-xs text-muted-foreground">JPEG, PNG, or WebP up to 5 MB. Images are resized before upload.</p>
+      <p className="text-center text-xs text-muted-foreground">JPEG, PNG, or WebP up to 5 MB. Images are resized before upload.</p>
     </div>
   )
 }

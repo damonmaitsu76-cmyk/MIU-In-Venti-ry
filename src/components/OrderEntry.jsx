@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Coffee, ShoppingCart, Trash2, UtensilsCrossed } from 'lucide-react'
 import { supabase } from '@/supabaseClient'
 import { Button } from '@/components/ui/button'
@@ -50,6 +50,8 @@ export default function OrderEntry({ onInventoryChanged }) {
   const [checkingOut, setCheckingOut] = useState(false)
   const [customOrderOpen, setCustomOrderOpen] = useState(false)
   const [mobileOrderOpen, setMobileOrderOpen] = useState(false)
+  const [removingCartKeys, setRemovingCartKeys] = useState([])
+  const removalTimers = useRef(new Map())
 
   async function loadOrderData() {
     setLoading(true)
@@ -73,21 +75,40 @@ export default function OrderEntry({ onInventoryChanged }) {
     loadInitialOrderData()
     return () => { cancelled = true }
   }, [])
+  useEffect(() => () => removalTimers.current.forEach((timer) => window.clearTimeout(timer)), [])
   const total = useMemo(() => cart.reduce((sum, line) => sum + Number(line.price || 0) * Number(line.quantity || 0), 0), [cart])
   const itemCount = useMemo(() => cart.reduce((sum, line) => sum + Number(line.quantity || 0), 0), [cart])
   function quantityInCart(productId) { return cart.find((line) => line.kind === 'standard' && String(line.product_id) === String(productId))?.quantity || 0 }
   function clearNotices() { setCheckoutError(null); setCheckoutSuccess(null) }
+  function cancelLineRemoval(key) {
+    const timer = removalTimers.current.get(key)
+    if (timer) window.clearTimeout(timer)
+    removalTimers.current.delete(key)
+    setRemovingCartKeys((keys) => keys.filter((currentKey) => currentKey !== key))
+  }
+  function removeLine(key) {
+    clearNotices()
+    if (removalTimers.current.has(key)) return
+    setRemovingCartKeys((keys) => [...keys, key])
+    removalTimers.current.set(key, window.setTimeout(() => {
+      setCart((lines) => lines.filter((line) => line.key !== key))
+      setRemovingCartKeys((keys) => keys.filter((currentKey) => currentKey !== key))
+      removalTimers.current.delete(key)
+    }, 240))
+  }
   function setProductQuantity(product, requestedQuantity) {
     const max = productMax(product) || 0
     const quantity = Math.min(max, Math.max(0, Math.floor(Number(requestedQuantity) || 0)))
     clearNotices()
+    const currentLine = cart.find((line) => line.kind === 'standard' && String(line.product_id) === String(product.product_id))
+    if (!quantity && currentLine) { removeLine(currentLine.key); return }
+    if (currentLine) cancelLineRemoval(currentLine.key)
     setCart((lines) => {
       const rest = lines.filter((line) => !(line.kind === 'standard' && String(line.product_id) === String(product.product_id)))
       return quantity ? [...rest, { kind: 'standard', key: `product-${product.product_id}`, product_id: product.product_id, product_name: product.product_name, price: Number(product.price || 0), quantity }] : rest
     })
   }
   function addCustomOrder(line) { clearNotices(); setCart((lines) => [...lines, line]) }
-  function removeLine(key) { clearNotices(); setCart((lines) => lines.filter((line) => line.key !== key)) }
   async function completeOrder() {
     if (!cart.length) return
     setCheckingOut(true); clearNotices()
@@ -97,7 +118,7 @@ export default function OrderEntry({ onInventoryChanged }) {
     const { error } = await supabase.rpc('checkout_order', { p_lines: pLines })
     setCheckingOut(false)
     if (error) { setCheckoutError(error.message); await loadOrderData(); return }
-    setCart([]); setCheckoutSuccess('Order completed and inventory has been updated.'); setMobileOrderOpen(false)
+    removalTimers.current.forEach((timer) => window.clearTimeout(timer)); removalTimers.current.clear(); setRemovingCartKeys([]); setCart([]); setCheckoutSuccess('Order completed and inventory has been updated.'); setMobileOrderOpen(false)
     await loadOrderData(); onInventoryChanged?.()
   }
 
@@ -112,13 +133,13 @@ export default function OrderEntry({ onInventoryChanged }) {
           {loadError && <div className="mb-4 rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive"><p>{loadError}</p><Button className="mt-2" variant="outline" size="sm" onClick={loadOrderData}>Retry</Button></div>}
           {loading ? <div className="grid grid-cols-[repeat(auto-fill,minmax(16rem,1fr))] gap-4"><div className="h-80 animate-pulse rounded-xl bg-muted" /><div className="h-80 animate-pulse rounded-xl bg-muted" /></div> : <div className="grid grid-cols-[repeat(auto-fill,minmax(16rem,1fr))] gap-4">{products.map((product) => <ProductCard key={product.product_id} product={product} cartQuantity={quantityInCart(product.product_id)} onChangeQuantity={setProductQuantity} />)}{!products.length && <p className="col-span-full rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">There are no active products yet. Add products and recipes in the Products page.</p>}</div>}
         </div>
-        <aside className="hidden h-fit rounded-xl border border-border bg-card p-4 lg:sticky lg:top-6 lg:block"><OrderSummary cart={cart} total={total} checkingOut={checkingOut} checkoutError={checkoutError} checkoutSuccess={checkoutSuccess} onRemove={removeLine} onCheckout={completeOrder} /></aside>
+        <aside className="hidden h-fit rounded-xl border border-border bg-card p-4 lg:sticky lg:top-6 lg:block"><OrderSummary cart={cart} removingCartKeys={removingCartKeys} total={total} checkingOut={checkingOut} checkoutError={checkoutError} checkoutSuccess={checkoutSuccess} onRemove={removeLine} onCheckout={completeOrder} /></aside>
       </div>
       <button type="button" className="fixed inset-x-3 bottom-16 z-30 flex min-h-12 items-center justify-between rounded-xl bg-primary px-4 text-left text-sm font-semibold text-primary-foreground shadow-lg lg:hidden" onClick={() => setMobileOrderOpen(true)}><span>View order · {itemCount} item{itemCount === 1 ? '' : 's'}</span><span>{formatPeso(total)}</span></button>
       <Dialog open={mobileOrderOpen} onOpenChange={setMobileOrderOpen}>
         <DialogContent size="full" className="top-auto bottom-0 translate-y-0 rounded-b-none max-w-none">
           <DialogHeader><DialogTitle>Current order</DialogTitle></DialogHeader>
-          <DialogBody className="pb-6"><OrderSummary cart={cart} total={total} checkingOut={checkingOut} checkoutError={checkoutError} checkoutSuccess={checkoutSuccess} onRemove={removeLine} onCheckout={completeOrder} /></DialogBody>
+          <DialogBody className="pb-6"><OrderSummary cart={cart} removingCartKeys={removingCartKeys} total={total} checkingOut={checkingOut} checkoutError={checkoutError} checkoutSuccess={checkoutSuccess} onRemove={removeLine} onCheckout={completeOrder} /></DialogBody>
         </DialogContent>
       </Dialog>
       <CustomOrderDialog open={customOrderOpen} onOpenChange={setCustomOrderOpen} products={products} inventory={inventory} onAdd={addCustomOrder} />
@@ -143,12 +164,12 @@ function ProductCard({ product, cartQuantity, onChangeQuantity }) {
   return <article className={`flex min-w-0 flex-col overflow-hidden rounded-xl border bg-card ${unavailable ? 'opacity-65' : ''}`}><div className="aspect-[4/3] bg-muted">{imageUrl ? <img className="size-full object-cover" src={imageUrl} alt="" /> : <div className="flex size-full items-center justify-center"><Coffee className="size-10 text-muted-foreground" /></div>}</div><div className="flex flex-1 flex-col gap-3 p-4"><div className="flex min-w-0 items-start gap-3"><h2 className="min-w-0 flex-1 line-clamp-2 text-base font-semibold leading-snug text-foreground">{product.product_name}</h2><span className={`shrink-0 whitespace-nowrap font-semibold tabular-nums ${noPrice ? 'text-muted-foreground' : 'text-foreground'}`}>{noPrice ? 'Set price' : formatPeso(product.price)}</span></div><p className={`text-sm ${availabilityClass}`}>{availability}</p><div className="mt-auto"><Stepper value={cartQuantity} onChange={(quantity) => onChangeQuantity(product, quantity)} min={0} max={unavailable ? 0 : max} label={`${product.product_name} in current order`} /></div></div></article>
 }
 
-function OrderSummary({ cart, total, checkingOut, checkoutError, checkoutSuccess, onRemove, onCheckout }) {
-  return <div className="grid gap-3"><div className="flex items-center justify-between"><h2 className="text-lg font-semibold text-foreground">Current order</h2><ShoppingCart className="size-5 text-muted-foreground" /></div>{cart.length ? <><div className="grid gap-3">{cart.map((line) => <CartLine key={line.key} line={line} onRemove={onRemove} />)}</div><div className="flex items-center justify-between border-t pt-3 font-semibold text-foreground"><span>Total</span><span className="tabular-nums">{formatPeso(total)}</span></div>{checkoutError && <p className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">Checkout could not be completed: {checkoutError}</p>}{checkoutSuccess && <p className="rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">{checkoutSuccess}</p>}<Button onClick={onCheckout} disabled={checkingOut}>{checkingOut ? 'Completing order…' : 'Complete order'}</Button></> : <p className="text-sm text-muted-foreground">No items in this order yet.</p>}</div>
+function OrderSummary({ cart, removingCartKeys, total, checkingOut, checkoutError, checkoutSuccess, onRemove, onCheckout }) {
+  return <div className="grid gap-3"><div className="flex items-center justify-between"><h2 className="text-lg font-semibold text-foreground">Current order</h2><ShoppingCart className="size-5 text-muted-foreground" /></div>{cart.length ? <><div className="grid gap-3">{cart.map((line) => <CartLine key={line.key} line={line} removing={removingCartKeys.includes(line.key)} onRemove={onRemove} />)}</div><div className="flex items-center justify-between border-t pt-3 font-semibold text-foreground"><span>Total</span><span className="tabular-nums">{formatPeso(total)}</span></div>{checkoutError && <p className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">Checkout could not be completed: {checkoutError}</p>}{checkoutSuccess && <p className="rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">{checkoutSuccess}</p>}<Button onClick={onCheckout} disabled={checkingOut}>{checkingOut ? 'Completing order…' : 'Complete order'}</Button></> : <p className="text-sm text-muted-foreground">No items in this order yet.</p>}</div>
 }
 
-function CartLine({ line, onRemove }) {
-  return <div className="flex items-start justify-between gap-2 text-sm"><div><p className="font-medium text-foreground">{line.kind === 'custom' ? `${line.product_name} — custom` : line.product_name}</p><p className="text-muted-foreground">{line.quantity} × {formatPeso(line.price)}</p>{line.kind === 'custom' && <p className="mt-1 text-xs text-muted-foreground">{line.ingredients.length} custom ingredient{line.ingredients.length === 1 ? '' : 's'}</p>}</div><div className="flex items-center gap-1"><span className="font-medium tabular-nums text-foreground">{formatPeso(Number(line.price) * Number(line.quantity))}</span><Button variant="ghost" size="icon-sm" className="text-destructive" onClick={() => onRemove(line.key)} aria-label={`Remove ${line.product_name}`}><Trash2 /></Button></div></div>
+function CartLine({ line, removing, onRemove }) {
+  return <div className={`flex items-start justify-between gap-2 text-sm motion-safe:duration-[240ms] motion-safe:ease-out ${removing ? 'motion-safe:animate-out motion-safe:fade-out-0 motion-safe:slide-out-to-right-2' : 'motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-right-2'}`}><div><p className="font-medium text-foreground">{line.kind === 'custom' ? `${line.product_name} — custom` : line.product_name}</p><p className="text-muted-foreground">{line.quantity} × {formatPeso(line.price)}</p>{line.kind === 'custom' && <p className="mt-1 text-xs text-muted-foreground">{line.ingredients.length} custom ingredient{line.ingredients.length === 1 ? '' : 's'}</p>}</div><div className="flex items-center gap-1"><span className="font-medium tabular-nums text-foreground">{formatPeso(Number(line.price) * Number(line.quantity))}</span><Button variant="ghost" size="icon-sm" className="text-destructive" onClick={() => onRemove(line.key)} aria-label={`Remove ${line.product_name}`}><Trash2 /></Button></div></div>
 }
 
 function CustomOrderDialog({ open, onOpenChange, products, inventory, onAdd }) {

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Pencil, Plus, Search } from 'lucide-react'
+import { Pencil, Plus, Search, Trash2 } from 'lucide-react'
 import { supabase } from '@/supabaseClient'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogBody, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
@@ -117,12 +117,36 @@ function InventorySkeleton() { return <div className="grid gap-2 rounded-xl bord
 
 function InventoryRow({ item, onUpdated, onEdit }) {
   const maintenance = getMaintenanceState(item)
-  return <tr className="border-b last:border-0 hover:bg-muted/40"><td className="p-4 font-medium text-foreground">{item.item_name}</td><td className="p-4"><p>{ITEM_TYPES[item.item_type] || item.item_type}</p><p className="text-xs text-muted-foreground">{categoryLabel(item.category)}</p></td><td className="p-4"><p className="tabular-nums">{formatStock(item)}</p><p className="text-xs text-muted-foreground">Threshold: {formatStock(item, item.minimum_quantity)}</p></td><td className="p-4"><StatusBadge status={item.stock_status} /></td><td className="p-4 text-muted-foreground">{item.needs_maintenance ? maintenance.label : '—'}</td><td className="p-4 text-right"><div className="inline-flex gap-2"><UpdateQuantityDialog item={item} onUpdated={onUpdated} /><Button variant="outline" size="sm" onClick={() => onEdit(item)}><Pencil />Edit</Button></div></td></tr>
+  return <tr className="border-b last:border-0 hover:bg-muted/40"><td className="p-4 font-medium text-foreground">{item.item_name}</td><td className="p-4"><p>{ITEM_TYPES[item.item_type] || item.item_type}</p><p className="text-xs text-muted-foreground">{categoryLabel(item.category)}</p></td><td className="p-4"><p className="tabular-nums">{formatStock(item)}</p><p className="text-xs text-muted-foreground">Threshold: {formatStock(item, item.minimum_quantity)}</p></td><td className="p-4"><StatusBadge status={item.stock_status} /></td><td className="p-4 text-muted-foreground">{item.needs_maintenance ? maintenance.label : '—'}</td><td className="p-4 text-right"><div className="inline-flex gap-2"><UpdateQuantityDialog item={item} onUpdated={onUpdated} /><Button variant="outline" size="sm" onClick={() => onEdit(item)}><Pencil />Edit</Button><DeleteInventoryButton item={item} onDeleted={onUpdated} /></div></td></tr>
 }
 
 function InventoryCard({ item, onUpdated, onEdit }) {
   const maintenance = getMaintenanceState(item)
-  return <article className="grid gap-3 rounded-xl border bg-card p-4"><div className="flex items-start justify-between gap-3"><div><h2 className="font-semibold text-foreground">{item.item_name}</h2><p className="text-sm text-muted-foreground">{ITEM_TYPES[item.item_type] || item.item_type} · {categoryLabel(item.category)}</p></div><StatusBadge status={item.stock_status} /></div><div><p className="font-medium tabular-nums text-foreground">{formatStock(item)}</p><p className="text-xs text-muted-foreground">Threshold: {formatStock(item, item.minimum_quantity)}</p></div>{item.needs_maintenance && <p className="text-sm text-muted-foreground">{maintenance.label}</p>}<div className="flex gap-2"><UpdateQuantityDialog item={item} onUpdated={onUpdated} /><Button variant="outline" onClick={() => onEdit(item)}><Pencil />Edit</Button></div></article>
+  return <article className="grid gap-3 rounded-xl border bg-card p-4"><div className="flex items-start justify-between gap-3"><div><h2 className="font-semibold text-foreground">{item.item_name}</h2><p className="text-sm text-muted-foreground">{ITEM_TYPES[item.item_type] || item.item_type} · {categoryLabel(item.category)}</p></div><StatusBadge status={item.stock_status} /></div><div><p className="font-medium tabular-nums text-foreground">{formatStock(item)}</p><p className="text-xs text-muted-foreground">Threshold: {formatStock(item, item.minimum_quantity)}</p></div>{item.needs_maintenance && <p className="text-sm text-muted-foreground">{maintenance.label}</p>}<div className="flex flex-wrap gap-2"><UpdateQuantityDialog item={item} onUpdated={onUpdated} /><Button variant="outline" onClick={() => onEdit(item)}><Pencil />Edit</Button><DeleteInventoryButton item={item} onDeleted={onUpdated} /></div></article>
+}
+
+function DeleteInventoryButton({ item, onDeleted }) {
+  const [open, setOpen] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const [error, setError] = useState(null)
+
+  async function deleteItem() {
+    setDeleting(true); setError(null)
+    const { error: deleteError } = await supabase.from('inventory_items').delete().eq('inventory_item_id', item.inventory_item_id)
+    setDeleting(false)
+    if (deleteError) {
+      setError(deleteError.code === '23503' || /recipe/i.test(deleteError.message || '') ? 'Remove this item from its recipes first.' : 'Could not delete this inventory item. Please try again.')
+      return
+    }
+    setOpen(false); onDeleted()
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={(nextOpen) => { if (!deleting) { setOpen(nextOpen); if (!nextOpen) setError(null) } }}>
+      <Button type="button" variant="destructive" size="sm" onClick={() => setOpen(true)}><Trash2 />Delete</Button>
+      {open && <DialogContent size="sm" showCloseButton={!deleting}><DialogHeader><DialogTitle>Delete {item.item_name}?</DialogTitle></DialogHeader><DialogBody className="grid gap-3"><p className="text-sm text-muted-foreground">This permanently removes the inventory item. This can’t be undone.</p>{error && <p className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive" role="alert">{error}</p>}</DialogBody><DialogFooter><Button type="button" variant="outline" onClick={() => setOpen(false)} disabled={deleting}>Cancel</Button><Button type="button" variant="destructive" onClick={deleteItem} disabled={deleting}>{deleting ? 'Deleting…' : 'Delete item'}</Button></DialogFooter></DialogContent>}
+    </Dialog>
+  )
 }
 
 export function InventoryItemDialog({ item, items, onSaved }) {
