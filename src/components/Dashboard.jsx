@@ -107,15 +107,7 @@ function SummaryTile({ label, value, variant, onClick }) {
   return <button type="button" className={`rounded-xl border p-4 text-left transition hover:bg-muted ${variant === 'destructive' ? 'border-destructive/30' : variant === 'warning' ? 'border-amber-200' : ''}`} onClick={onClick}><p className="text-sm text-muted-foreground">{label}</p><p className="mt-1 text-3xl font-semibold tabular-nums text-foreground">{value}</p></button>
 }
 
-function AlertPanel({ id, title, empty, items, ariaLabel, renderItem }) {
-  const scrollable = items.length > ALERT_VISIBLE_ROWS
-  return (
-    <section id={id} className="scroll-mt-4 rounded-xl border bg-card p-4">
-      <div className="mb-3 flex items-center justify-between gap-3"><h2 className="text-lg font-semibold text-foreground">{title}</h2><span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium tabular-nums text-muted-foreground">{items.length}</span></div>
-      {items.length ? <><div className="scroll-thin grid content-start gap-2 overflow-y-auto overscroll-contain pr-1" style={{ maxHeight: ALERT_LIST_MAX_HEIGHT }} {...(scrollable ? { tabIndex: 0, role: 'region', 'aria-label': ariaLabel } : {})}>{items.map((item) => <div key={item.item?.inventory_item_id || item.inventory_item_id || item.product_id} className="h-[5.25rem]">{renderItem(item)}</div>)}</div>{scrollable && <p className="mt-2 text-xs text-muted-foreground">{ALERT_VISIBLE_ROWS} of {items.length} shown — scroll for more</p>}</> : <p className="text-sm text-muted-foreground">{empty}</p>}
-    </section>
-  )
-}
+
 
 function StockAlertRow({ item, onUpdated }) {
   return <div className="flex h-full items-center justify-between gap-3 rounded-lg border p-3"><div className="min-w-0"><p className="truncate font-medium text-foreground">{item.item_name}</p><p className="truncate text-sm text-muted-foreground">{formatStock(item)} / threshold {formatStock(item, item.minimum_quantity)}</p></div><div className="grid shrink-0 justify-items-end gap-1"><StatusBadge status={item.stock_status} /><UpdateQuantityDialog item={item} onUpdated={onUpdated} /></div></div>
