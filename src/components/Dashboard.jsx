@@ -112,7 +112,7 @@ function AlertPanel({ id, title, empty, items, ariaLabel, renderItem }) {
   return (
     <section id={id} className="scroll-mt-4 rounded-xl border bg-card p-4">
       <div className="mb-3 flex items-center justify-between gap-3"><h2 className="text-lg font-semibold text-foreground">{title}</h2><span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium tabular-nums text-muted-foreground">{items.length}</span></div>
-      {items.length ? <><div className="scroll-thin grid content-start gap-2 overflow-y-auto overscroll-contain pr-1" style={{ maxHeight: ALERT_LIST_MAX_HEIGHT }} {...(scrollable ? { tabIndex: 0, role: 'region', 'aria-label': ariaLabel } : {})}>{items.map((item) => <div key={item.item?.inventory_item_id || item.inventory_item_id || item.product_id} className="h-[5.25rem]">{renderItem(item)}</div>)}</div>{scrollable && <p className="mt-2 text-xs text-muted-foreground">{ALERT_VISIBLE_ROWS} of {items.length} shown — scroll for more</p>}</> : <p className="text-sm text-muted-foreground">{empty}</p>}
+      {items.length ? <><div className="scroll-thin grid content-start gap-2 overflow-y-auto overscroll-contain pr-1" style={{ maxHeight: ALERT_LIST_MAX_HEIGHT }} {...(scrollable ? { tabIndex: 0, role: 'region', 'aria-label': ariaLabel } : {})}>{items.map((item) => <div key={item.item?.inventory_item_id || item.inventory_item_id || item.product_id} className="h-[5.25rem]">{renderItem(item)}</div>)}</div></> : <p className="text-sm text-muted-foreground">{empty}</p>}
     </section>
   )
 }
