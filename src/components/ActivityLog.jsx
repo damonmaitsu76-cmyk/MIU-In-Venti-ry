@@ -9,6 +9,7 @@ import { ACTION_LABELS, ACTION_TONES, DATE_RANGE_OPTIONS, SHOW_OPTIONS, actionOp
 import { dayBoundary, formatManilaDateTime, formatManilaTime, formatRelative, manilaDateString } from '@/lib/format'
 import { optionsToItems } from '@/lib/inventoryConfig'
 import { formatStock } from '@/lib/units'
+import { withTimeout } from '@/lib/withTimeout'
 
 const PAGE_SIZE = 25
 const CSV_PAGE_SIZE = 1000
@@ -87,6 +88,7 @@ export default function ActivityLog() {
   const [exporting, setExporting] = useState(false)
   const [exportNote, setExportNote] = useState(null)
   const [refreshVersion, setRefreshVersion] = useState(0)
+  const [liveStatus, setLiveStatus] = useState('SUBSCRIBED')
   const liveRef = useRef(null)
   const refreshTimerRef = useRef(null)
 
@@ -113,7 +115,7 @@ export default function ActivityLog() {
   useEffect(() => {
     let cancelled = false
     async function loadFirstPage() {
-      const { data, error, count } = await fetchAuditPage(filters, { includeTotal: true })
+      const { data, error, count } = await withTimeout(fetchAuditPage(filters, { includeTotal: true }))
       if (cancelled) return
       setAuditResult({ key: filterKey, rows: data || [], total: count ?? 0, error: error?.message || null, hasMore: !error && (data || []).length === PAGE_SIZE })
     }
@@ -129,7 +131,9 @@ export default function ActivityLog() {
   useEffect(() => {
     const channel = supabase.channel('activity-live')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'audit_log' }, () => liveRef.current?.())
-      .subscribe()
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED' || status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') setLiveStatus(status)
+      })
     return () => { window.clearTimeout(refreshTimerRef.current); supabase.removeChannel(channel) }
   }, [])
 
@@ -187,7 +191,7 @@ export default function ActivityLog() {
 
   return (
     <section className="mx-auto max-w-5xl text-left">
-      <div className="mb-6"><h1 className="text-2xl font-semibold tracking-tight text-foreground">Activity</h1><p className="mt-1 text-sm text-muted-foreground">Every stock change and product edit — who made it, what changed, and when. Newest first.</p></div>
+      <div className="mb-6"><h1 className="text-2xl font-semibold tracking-tight text-foreground">Activity</h1><p className="mt-1 text-sm text-muted-foreground">Every stock change and product edit — who made it, what changed, and when. Newest first.</p>{liveStatus !== 'SUBSCRIBED' && <div className="mt-2 flex flex-wrap items-center gap-2"><p className="text-sm text-muted-foreground" role="status">Live updates paused — showing last loaded data.</p><Button variant="outline" size="sm" onClick={() => setRefreshVersion((version) => version + 1)}><RefreshCw />Refresh</Button></div>}</div>
       <div className="mb-4 grid gap-3 rounded-xl border bg-card p-4 sm:grid-cols-2 lg:grid-cols-4">
         <FilterSelect label="Date range" value={dateRange} onValueChange={setDateRange} options={DATE_RANGE_OPTIONS} />
         <FilterSelect label="Show" value={show} onValueChange={handleShowChange} options={SHOW_OPTIONS} />

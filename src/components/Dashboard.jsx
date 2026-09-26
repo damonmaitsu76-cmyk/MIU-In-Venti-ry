@@ -7,18 +7,19 @@ import { supabase } from '@/supabaseClient'
 import { getMaintenanceState } from '@/lib/maintenance'
 import { fetchPackageBlockedProducts } from '@/lib/recipes'
 import { formatStock } from '@/lib/units'
+import { withTimeout, withTimeoutRejecting } from '@/lib/withTimeout'
 
 const ALERT_VISIBLE_ROWS = 5
 const ALERT_LIST_MAX_HEIGHT = 'calc(5 * 5.25rem + 4 * 0.5rem)'
 
 async function fetchDashboardAlerts() {
   const [inventoryResult, productsResult] = await Promise.all([
-    supabase.from('inventory_status').select('*').order('item_name', { ascending: true }),
-    supabase.from('product_availability').select('*').eq('is_active', true).order('product_name', { ascending: true }),
+    withTimeout(supabase.from('inventory_status').select('*').order('item_name', { ascending: true })),
+    withTimeout(supabase.from('product_availability').select('*').eq('is_active', true).order('product_name', { ascending: true })),
   ])
   if (inventoryResult.error) return [inventoryResult, productsResult, { data: new Map(), error: null }]
   try {
-    return [inventoryResult, productsResult, { data: await fetchPackageBlockedProducts(inventoryResult.data || []), error: null }]
+    return [inventoryResult, productsResult, { data: await withTimeoutRejecting(fetchPackageBlockedProducts(inventoryResult.data || [])), error: null }]
   } catch (error) {
     return [inventoryResult, productsResult, { data: new Map(), error }]
   }
@@ -36,11 +37,19 @@ export default function Dashboard({ onInventoryChanged }) {
   const [products, setProducts] = useState([])
   const [alertsLoading, setAlertsLoading] = useState(true)
   const [alertsError, setAlertsError] = useState(null)
+  const [liveStatus, setLiveStatus] = useState('SUBSCRIBED')
   const liveRef = useRef(null)
+  const cancelledRef = useRef(false)
+
+  useEffect(() => {
+    cancelledRef.current = false
+    return () => { cancelledRef.current = true }
+  }, [])
 
   const loadAlerts = useCallback(async () => {
     setAlertsLoading(true)
     const [inventoryResult, productsResult, blockedProductsResult] = await fetchDashboardAlerts()
+    if (cancelledRef.current) return
     const error = inventoryResult.error || productsResult.error || blockedProductsResult.error
     if (error) setAlertsError(error.message)
     else {
@@ -53,29 +62,18 @@ export default function Dashboard({ onInventoryChanged }) {
 
   useEffect(() => { liveRef.current = { loadAlerts, onInventoryChanged } }, [loadAlerts, onInventoryChanged])
   useEffect(() => {
-    let cancelled = false
-    async function loadInitialDashboard() {
-      const [inventoryResult, productsResult, blockedProductsResult] = await fetchDashboardAlerts()
-      if (cancelled) return
-      const error = inventoryResult.error || productsResult.error || blockedProductsResult.error
-      if (error) setAlertsError(error.message)
-      else {
-        setInventory(inventoryResult.data || [])
-        setProducts(withPackageBlockedProducts(productsResult.data, blockedProductsResult.data))
-        setAlertsError(null)
-      }
-      setAlertsLoading(false)
-    }
-    loadInitialDashboard()
-    return () => { cancelled = true }
-  }, [])
+    const timer = window.setTimeout(loadAlerts, 0)
+    return () => window.clearTimeout(timer)
+  }, [loadAlerts])
   useEffect(() => {
     const channel = supabase.channel('dashboard-live')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'inventory_items' }, () => {
         liveRef.current?.loadAlerts()
         liveRef.current?.onInventoryChanged?.()
       })
-      .subscribe()
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED' || status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') setLiveStatus(status)
+      })
     return () => { supabase.removeChannel(channel) }
   }, [])
 
@@ -93,7 +91,7 @@ export default function Dashboard({ onInventoryChanged }) {
   return (
     <section className="mx-auto max-w-7xl scroll-mt-4 text-left">
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div><h1 className="text-2xl font-semibold tracking-tight text-foreground">Dashboard</h1><p className="mt-1 text-sm text-muted-foreground">Stock alerts, maintenance work, and unavailable drinks.</p></div>
+        <div><h1 className="text-2xl font-semibold tracking-tight text-foreground">Dashboard</h1><p className="mt-1 text-sm text-muted-foreground">Stock alerts, maintenance work, and unavailable drinks.</p>{liveStatus !== 'SUBSCRIBED' && <p className="mt-1 text-sm text-muted-foreground" role="status">Live updates paused — showing last loaded data.</p>}</div>
         <div className="flex flex-wrap gap-2"><a href="#/activity" className={buttonVariants({ variant: 'outline' })}>Activity log</a><Button variant="outline" onClick={refreshAll}><RefreshCw />Refresh</Button></div>
       </div>
       <div className="mb-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4"><SummaryTile label="Out of stock" value={outOfStock.length} variant="destructive" onClick={() => scrollTo('out-of-stock')} /><SummaryTile label="Low stock" value={lowStock.length} variant="warning" onClick={() => scrollTo('low-stock')} /><SummaryTile label="Maintenance due" value={maintenance.length} onClick={() => scrollTo('maintenance-due')} /><SummaryTile label="Unavailable drinks" value={unavailableProducts.length} onClick={() => scrollTo('unavailable-drinks')} /></div>

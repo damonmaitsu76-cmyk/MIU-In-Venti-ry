@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ImageIcon, Plus, Trash2, TriangleAlert } from 'lucide-react'
 import { supabase } from '@/supabaseClient'
 import { Button } from '@/components/ui/button'
@@ -13,13 +13,14 @@ import { formatPeso } from '@/lib/format'
 import { imageUrlFor, uploadProductImage } from '@/lib/images'
 import { parseAmount } from '@/lib/numbers'
 import { canBeInRecipe, isPackTracked, recipeUnitLabel } from '@/lib/units'
+import { withTimeout } from '@/lib/withTimeout'
 
 const emptyRecipeRow = () => ({ key: crypto.randomUUID(), inventory_item_id: '', quantity_required: '' })
 
 async function fetchProductDashboard() {
   return Promise.all([
-    supabase.from('products').select('*').order('product_name', { ascending: true }),
-    supabase.from('inventory_items').select('*').order('item_name', { ascending: true }),
+    withTimeout(supabase.from('products').select('*').order('product_name', { ascending: true })),
+    withTimeout(supabase.from('inventory_items').select('*').order('item_name', { ascending: true })),
   ])
 }
 
@@ -31,29 +32,27 @@ export default function ProductDashboard() {
   const [notice, setNotice] = useState(null)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [selectedProduct, setSelectedProduct] = useState(null)
+  const cancelledRef = useRef(false)
 
-  async function loadDashboard() {
+  useEffect(() => {
+    cancelledRef.current = false
+    return () => { cancelledRef.current = true }
+  }, [])
+
+  const loadDashboard = useCallback(async () => {
     setLoading(true)
     const [productsResult, inventoryResult] = await fetchProductDashboard()
+    if (cancelledRef.current) return
     const loadError = productsResult.error || inventoryResult.error
     if (loadError) setError(loadError.message)
     else { setProducts(productsResult.data || []); setInventory(inventoryResult.data || []); setError(null) }
     setLoading(false)
-  }
+  }, [])
 
   useEffect(() => {
-    let cancelled = false
-    async function loadInitialDashboard() {
-      const [productsResult, inventoryResult] = await fetchProductDashboard()
-      if (cancelled) return
-      const loadError = productsResult.error || inventoryResult.error
-      if (loadError) setError(loadError.message)
-      else { setProducts(productsResult.data || []); setInventory(inventoryResult.data || []); setError(null) }
-      setLoading(false)
-    }
-    loadInitialDashboard()
-    return () => { cancelled = true }
-  }, [])
+    const timer = window.setTimeout(loadDashboard, 0)
+    return () => window.clearTimeout(timer)
+  }, [loadDashboard])
   function openNewProduct() { setSelectedProduct(null); setDialogOpen(true) }
   function openEditProduct(product) { setSelectedProduct(product); setDialogOpen(true) }
   function handleProductDeleted(message) { setNotice(message || null); loadDashboard() }

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Pencil, Plus, Search, Trash2 } from 'lucide-react'
 import { supabase } from '@/supabaseClient'
 import { Button } from '@/components/ui/button'
@@ -12,12 +12,13 @@ import StatusBadge from '@/components/StatusBadge'
 import { CATEGORY_OPTIONS, categoryLabel, ITEM_TYPES, optionsToItems, STATUS_OPTIONS } from '@/lib/inventoryConfig'
 import { getMaintenanceState } from '@/lib/maintenance'
 import { parseAmount } from '@/lib/numbers'
+import { withTimeout } from '@/lib/withTimeout'
 import { describeTracking, formatStock, fromStored, isPackTracked, resolveStorage, toStored } from '@/lib/units'
 
 const TYPE_OPTIONS = Object.entries(ITEM_TYPES).map(([value, label]) => ({ value, label }))
 
 async function fetchInventoryItems() {
-  return supabase.from('inventory_status').select('*').order('item_name', { ascending: true })
+  return withTimeout(supabase.from('inventory_status').select('*').order('item_name', { ascending: true }))
 }
 
 function initialForm(item) {
@@ -47,30 +48,29 @@ export default function IngredientList({ onInventoryChanged }) {
   const [status, setStatus] = useState('all')
   const [addOpen, setAddOpen] = useState(false)
   const [editItem, setEditItem] = useState(null)
+  const cancelledRef = useRef(false)
 
-  async function loadItems() {
+  useEffect(() => {
+    cancelledRef.current = false
+    return () => { cancelledRef.current = true }
+  }, [])
+
+  const loadItems = useCallback(async () => {
     setLoading(true)
     const { data, error } = await fetchInventoryItems()
+    if (cancelledRef.current) return
     if (error) setErrorMsg(error.message)
     else {
       setItems(data || [])
       setErrorMsg(null)
     }
     setLoading(false)
-  }
+  }, [])
 
   useEffect(() => {
-    let cancelled = false
-    async function loadInitialItems() {
-      const { data, error } = await fetchInventoryItems()
-      if (cancelled) return
-      if (error) setErrorMsg(error.message)
-      else { setItems(data || []); setErrorMsg(null) }
-      setLoading(false)
-    }
-    loadInitialItems()
-    return () => { cancelled = true }
-  }, [])
+    const timer = window.setTimeout(loadItems, 0)
+    return () => window.clearTimeout(timer)
+  }, [loadItems])
 
   const filteredItems = useMemo(() => {
     const term = search.trim().toLowerCase()

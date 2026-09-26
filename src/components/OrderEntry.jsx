@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Coffee, ShoppingCart, Trash2, UtensilsCrossed } from 'lucide-react'
 import { supabase } from '@/supabaseClient'
 import { Button } from '@/components/ui/button'
@@ -13,6 +13,7 @@ import { imageUrlFor } from '@/lib/images'
 import { parseAmount } from '@/lib/numbers'
 import { fetchPackageBlockedProducts } from '@/lib/recipes'
 import { canBeInRecipe, formatStock } from '@/lib/units'
+import { withTimeout, withTimeoutRejecting } from '@/lib/withTimeout'
 
 function productMax(product) {
   const value = product.max_servings ?? product.max_available_qty
@@ -21,12 +22,12 @@ function productMax(product) {
 
 async function fetchOrderData() {
   const [productsResult, inventoryResult] = await Promise.all([
-    supabase.from('product_availability').select('*').eq('is_active', true).order('product_name', { ascending: true }),
-    supabase.from('inventory_status').select('*').order('item_name', { ascending: true }),
+    withTimeout(supabase.from('product_availability').select('*').eq('is_active', true).order('product_name', { ascending: true })),
+    withTimeout(supabase.from('inventory_status').select('*').order('item_name', { ascending: true })),
   ])
   if (inventoryResult.error) return [productsResult, inventoryResult, { data: new Map(), error: null }]
   try {
-    return [productsResult, inventoryResult, { data: await fetchPackageBlockedProducts(inventoryResult.data || []), error: null }]
+    return [productsResult, inventoryResult, { data: await withTimeoutRejecting(fetchPackageBlockedProducts(inventoryResult.data || [])), error: null }]
   } catch (error) {
     return [productsResult, inventoryResult, { data: new Map(), error }]
   }
@@ -52,29 +53,27 @@ export default function OrderEntry({ onInventoryChanged }) {
   const [mobileOrderOpen, setMobileOrderOpen] = useState(false)
   const [removingCartKeys, setRemovingCartKeys] = useState([])
   const removalTimers = useRef(new Map())
+  const cancelledRef = useRef(false)
 
-  async function loadOrderData() {
+  useEffect(() => {
+    cancelledRef.current = false
+    return () => { cancelledRef.current = true }
+  }, [])
+
+  const loadOrderData = useCallback(async () => {
     setLoading(true)
     const [productsResult, inventoryResult, blockedProductsResult] = await fetchOrderData()
+    if (cancelledRef.current) return
     const error = productsResult.error || inventoryResult.error || blockedProductsResult.error
     if (error) setLoadError(error.message)
     else { setProducts(withPackageBlockedProducts(productsResult.data, blockedProductsResult.data)); setInventory(inventoryResult.data || []); setLoadError(null) }
     setLoading(false)
-  }
+  }, [])
 
   useEffect(() => {
-    let cancelled = false
-    async function loadInitialOrderData() {
-      const [productsResult, inventoryResult, blockedProductsResult] = await fetchOrderData()
-      if (cancelled) return
-      const error = productsResult.error || inventoryResult.error || blockedProductsResult.error
-      if (error) setLoadError(error.message)
-      else { setProducts(withPackageBlockedProducts(productsResult.data, blockedProductsResult.data)); setInventory(inventoryResult.data || []); setLoadError(null) }
-      setLoading(false)
-    }
-    loadInitialOrderData()
-    return () => { cancelled = true }
-  }, [])
+    const timer = window.setTimeout(loadOrderData, 0)
+    return () => window.clearTimeout(timer)
+  }, [loadOrderData])
   useEffect(() => () => removalTimers.current.forEach((timer) => window.clearTimeout(timer)), [])
   const total = useMemo(() => cart.reduce((sum, line) => sum + Number(line.price || 0) * Number(line.quantity || 0), 0), [cart])
   const itemCount = useMemo(() => cart.reduce((sum, line) => sum + Number(line.quantity || 0), 0), [cart])
