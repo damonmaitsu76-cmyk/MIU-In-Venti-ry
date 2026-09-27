@@ -54,8 +54,8 @@ export default function Login() {
         </div>
 
         <div className="flex w-full flex-col justify-between p-8 sm:p-12 md:min-w-0 md:flex-1 md:overflow-y-auto md:px-12 md:py-10 lg:px-14">
-          <div className="mb-6 flex items-center gap-4">
-            <LogoBadge size={60} alt="MIU In-Venti-ry" />
+          <div className="mb-6 flex w-full items-center justify-center gap-4">
+            <LogoBadge size="clamp(64px, 7vw, 80px)" alt="MIU In-Venti-ry" />
             <Wordmark
               size="sm"
               tone="dark"
