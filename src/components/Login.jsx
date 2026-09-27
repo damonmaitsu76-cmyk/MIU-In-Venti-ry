@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import Wordmark from '@/components/Wordmark'
-import logoMark from '@/assets/miu-logo-badge.svg'
+import LogoBadge from '@/components/LogoBadge'
 import heroPhoto from '@/assets/heroic-brevities.jpg'
 
 export default function Login() {
@@ -29,34 +29,42 @@ export default function Login() {
   }
 
   return (
-    <section className="flex min-h-screen items-center justify-center bg-[#dfcba8] p-4 sm:p-6">
-      <div className="flex w-full max-w-md flex-col overflow-hidden rounded-[24px] bg-white shadow-[0px_12px_40px_0px_rgba(28,38,30,0.04)] md:h-[600px] md:max-w-[986px] md:flex-row">
-        <div className="relative hidden shrink-0 flex-col justify-between overflow-hidden md:flex md:w-[40%] md:p-6 lg:w-[472px] lg:p-12">
+    <section className="flex min-h-dvh items-center justify-center bg-[#dfcba8] p-4 sm:p-6">
+      <div className="flex w-full max-w-md flex-col overflow-hidden rounded-[24px] bg-white shadow-[0px_12px_40px_0px_rgba(28,38,30,0.04)] md:h-[min(560px,calc(100dvh-3rem))] md:min-h-[520px] md:max-w-[920px] md:flex-row">
+        <div className="relative hidden shrink-0 flex-col justify-between overflow-hidden p-10 md:flex md:w-[46%] lg:p-12">
           <img src={heroPhoto} alt="" className="absolute inset-0 size-full object-cover" />
           <div aria-hidden className="absolute inset-0 bg-[rgba(63,94,61,0.2)]" />
           <div aria-hidden className="absolute inset-0 bg-[linear-gradient(180deg,rgba(24,37,24,0.48),transparent_45%,rgba(24,37,24,0.54))]" />
 
           <div className="relative z-10 flex flex-col items-center gap-2">
-            <img src={logoMark} alt="" className="w-40 lg:w-64" />
-            <Wordmark size="lg" tone="light" className="text-center" />
+            <LogoBadge size="clamp(96px, 20dvh, 132px)" />
+            <Wordmark
+              size="lg"
+              tone="light"
+              className="text-center [&_span:nth-child(1)]:text-4xl [&_span:nth-child(2)]:text-5xl [&_span:nth-child(3)]:text-4xl [&_span:nth-child(4)]:text-4xl [&_span:nth-child(5)]:text-5xl lg:[&_span:nth-child(1)]:text-5xl lg:[&_span:nth-child(2)]:text-6xl lg:[&_span:nth-child(3)]:text-5xl lg:[&_span:nth-child(4)]:text-5xl lg:[&_span:nth-child(5)]:text-6xl"
+            />
           </div>
 
           <div className="relative z-10 flex flex-col gap-2">
-            <p className="font-['Instrument_Serif'] text-5xl leading-none text-white">MIU matcha cafe</p>
+            <p className="font-['Instrument_Serif'] text-4xl leading-none text-white lg:text-5xl">MIU matcha cafe</p>
             <p className="font-['Instrument_Sans_Variable'] text-sm font-medium uppercase text-white/[0.94]">
               Inventory system
             </p>
           </div>
         </div>
 
-        <div className="flex w-full flex-col justify-between p-8 sm:p-12 md:min-w-0 md:flex-1 md:p-8 lg:p-16">
-          <div className="mb-8 flex items-center gap-3 md:mb-10">
-            <img src={logoMark} alt="MIU In-Venti-ry" className="h-12 w-12 object-contain" />
-            <Wordmark size="sm" tone="dark" />
+        <div className="flex w-full flex-col justify-between p-8 sm:p-12 md:min-w-0 md:flex-1 md:overflow-y-auto md:px-12 md:py-10 lg:px-14">
+          <div className="mb-6 flex items-center gap-4">
+            <LogoBadge size={60} alt="MIU In-Venti-ry" />
+            <Wordmark
+              size="sm"
+              tone="dark"
+              className="[&_span:nth-child(1)]:text-[28px] [&_span:nth-child(2)]:text-[28px] [&_span:nth-child(3)]:text-[28px] [&_span:nth-child(4)]:text-[28px] [&_span:nth-child(5)]:text-[28px]"
+            />
           </div>
 
           {mode === 'signin' ? (
-            <form onSubmit={handleSubmit} className="flex flex-col gap-8 text-left">
+            <form onSubmit={handleSubmit} className="flex flex-col gap-6 text-left">
               <p className="font-['Instrument_Sans_Variable'] text-sm text-[#526055]">
                 Sign in to manage stock levels and logs
               </p>
@@ -125,7 +133,7 @@ export default function Login() {
               </div>
             </form>
           ) : (
-            <div className="flex flex-col gap-8 text-left">
+            <div className="flex flex-col gap-6 text-left">
               <p className="font-['Instrument_Sans_Variable'] text-sm text-[#526055]">
                 Password resets aren&apos;t self-service yet — email your cafe admin and ask them to reset it for you from the Supabase dashboard.
               </p>

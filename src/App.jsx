@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Boxes, History, LayoutDashboard, LogOut, Package, ShoppingCart } from 'lucide-react'
-import logoMark from '@/assets/miu-logo-badge.svg'
+import LogoBadge from './components/LogoBadge'
 import Wordmark from '@/components/Wordmark'
 import ActivityLog from './components/ActivityLog'
 import { supabase } from './supabaseClient'
@@ -74,8 +74,8 @@ function App() {
 
 function Brand({ compact = false }) {
   return (
-    <div className="flex items-center gap-2 px-2 text-left">
-      <img src={logoMark} alt="" className="size-9 shrink-0 object-contain" />
+    <div className="flex items-center gap-3 px-2 text-left">
+      <LogoBadge size={compact ? 36 : 40} />
       {!compact && (
         <div>
           <Wordmark size="sm" tone="dark" />
