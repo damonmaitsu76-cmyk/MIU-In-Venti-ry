@@ -124,7 +124,7 @@ export default function OrderEntry({ onInventoryChanged }) {
   return (
     <section className="mx-auto max-w-7xl pb-32 text-left lg:pb-0">
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div><h1 className="text-2xl font-semibold tracking-tight text-foreground">Order entry</h1><p className="mt-1 text-sm text-muted-foreground">Build an order first; inventory is deducted only at checkout.</p></div>
+        <div><h1 className="font-heading text-2xl font-semibold tracking-tight text-foreground">Order entry</h1><p className="mt-1 text-sm text-muted-foreground">Build an order first; inventory is deducted only at checkout.</p></div>
         <Button variant="outline" onClick={() => setCustomOrderOpen(true)}><UtensilsCrossed />Custom order</Button>
       </div>
       <div className="grid min-w-0 gap-6 lg:grid-cols-[minmax(0,1fr)_24rem]">

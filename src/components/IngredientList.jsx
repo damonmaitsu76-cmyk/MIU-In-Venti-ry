@@ -89,7 +89,7 @@ export default function IngredientList({ onInventoryChanged }) {
   return (
     <section className="mx-auto max-w-7xl text-left">
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div><h1 className="text-2xl font-semibold tracking-tight text-foreground">Inventory</h1><p className="mt-1 text-sm text-muted-foreground">Track ingredients, packaging, and equipment.</p></div>
+        <div><h1 className="font-heading text-2xl font-semibold tracking-tight text-foreground">Inventory</h1><p className="mt-1 text-sm text-muted-foreground">Track ingredients, packaging, and equipment.</p></div>
         <Dialog open={addOpen} onOpenChange={setAddOpen}>
           <DialogTrigger render={<Button />}><Plus />Add inventory item</DialogTrigger>
           {addOpen && <InventoryItemDialog items={items} onSaved={() => { setAddOpen(false); refresh() }} />}

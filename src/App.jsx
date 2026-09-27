@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Boxes, ClipboardList, History, LayoutDashboard, LogOut, Package, ShoppingCart } from 'lucide-react'
+import { Boxes, History, LayoutDashboard, LogOut, Package, ShoppingCart } from 'lucide-react'
+import logoMark from '@/assets/miu-logo-badge.svg'
+import Wordmark from '@/components/Wordmark'
 import ActivityLog from './components/ActivityLog'
 import { supabase } from './supabaseClient'
 import Dashboard from './components/Dashboard'
@@ -70,7 +72,19 @@ function App() {
   return <div className="min-h-dvh bg-background text-foreground md:grid md:grid-cols-[15rem_minmax(0,1fr)]"><aside className="hidden border-r border-sidebar-border bg-sidebar p-4 md:sticky md:top-0 md:flex md:h-dvh md:self-start md:flex-col md:overflow-y-auto"><Brand /><nav className="mt-6 grid gap-2" aria-label="Main navigation">{navigation.map(({ id, label, icon: Icon }) => <NavigationButton key={id} active={view === id} label={label} icon={Icon} badge={id === 'dashboard' ? attentionCount : 0} onClick={() => navigate(id)} />)}</nav><div className="mt-auto shrink-0 border-t pt-4"><p className="mb-2 truncate px-2 text-sm text-muted-foreground">{staffName}</p><Button variant="ghost" className="w-full justify-start" onClick={() => supabase.auth.signOut()}><LogOut />Sign out</Button></div></aside><main className="min-w-0 p-4 pb-24 sm:p-6 md:pb-6 lg:p-8"><div className="mb-6 flex items-center justify-between md:hidden"><Brand compact /><Button variant="ghost" size="icon-lg" onClick={() => supabase.auth.signOut()} aria-label="Sign out"><LogOut /></Button></div><div key={view} className="motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-bottom-2 motion-safe:duration-300 motion-safe:ease-out">{currentView}</div></main><nav className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-5 border-t bg-background/95 p-2 backdrop-blur md:hidden" aria-label="Main navigation">{navigation.map(({ id, label, icon: Icon }) => <NavigationButton key={id} compact active={view === id} label={label} icon={Icon} badge={id === 'dashboard' ? attentionCount : 0} onClick={() => navigate(id)} />)}</nav></div>
 }
 
-function Brand({ compact = false }) { return <div className="flex items-center gap-2 px-2 text-left"><div className="rounded-md bg-primary p-2 text-primary-foreground"><ClipboardList className="size-5" /></div>{!compact && <div><p className="text-sm font-semibold text-foreground">MIU In-Venti-ry</p><p className="text-xs text-muted-foreground">Cafe operations</p></div>}</div> }
+function Brand({ compact = false }) {
+  return (
+    <div className="flex items-center gap-2 px-2 text-left">
+      <img src={logoMark} alt="" className="size-9 shrink-0 object-contain" />
+      {!compact && (
+        <div>
+          <Wordmark size="sm" tone="dark" />
+          <p className="text-xs text-muted-foreground">Cafe operations</p>
+        </div>
+      )}
+    </div>
+  )
+}
 function NavigationButton({ active, label, icon: Icon, badge, onClick, compact }) { return <Button variant={active ? 'secondary' : 'ghost'} className={compact ? 'relative h-12 flex-col gap-0 px-1 text-[11px]' : 'relative min-h-11 justify-start'} onClick={onClick}><Icon />{label}{badge > 0 && <span className={compact ? 'absolute right-2 top-1 rounded-full bg-destructive px-1.5 text-[10px] text-white' : 'ml-auto rounded-full bg-destructive px-1.5 text-xs text-white'}>{badge}</span>}</Button> }
 
 export default App

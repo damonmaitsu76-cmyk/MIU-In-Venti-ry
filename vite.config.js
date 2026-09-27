@@ -11,7 +11,7 @@ export default defineConfig({
     manifest: {
       name: 'MIU In-Venti-ry',
       short_name: 'MIU',
-      theme_color: '#863bff',
+      theme_color: '#3f5e3d',
       background_color: '#ffffff',
       // TODO: Supply real 192x192 and 512x512 PNG icons before offering PWA installation.
       icons: [{ src: '/favicon.svg', sizes: 'any', type: 'image/svg+xml' }],

@@ -91,7 +91,7 @@ export default function Dashboard({ onInventoryChanged }) {
   return (
     <section className="mx-auto max-w-7xl scroll-mt-4 text-left">
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div><h1 className="text-2xl font-semibold tracking-tight text-foreground">Dashboard</h1><p className="mt-1 text-sm text-muted-foreground">Stock alerts, maintenance work, and unavailable drinks.</p>{liveStatus !== 'SUBSCRIBED' && <p className="mt-1 text-sm text-muted-foreground" role="status">Live updates paused — showing last loaded data.</p>}</div>
+        <div><h1 className="font-heading text-2xl font-semibold tracking-tight text-foreground">Dashboard</h1><p className="mt-1 text-sm text-muted-foreground">Stock alerts, maintenance work, and unavailable drinks.</p>{liveStatus !== 'SUBSCRIBED' && <p className="mt-1 text-sm text-muted-foreground" role="status">Live updates paused — showing last loaded data.</p>}</div>
         <div className="flex flex-wrap gap-2"><a href="#/activity" className={buttonVariants({ variant: 'outline' })}>Activity log</a><Button variant="outline" onClick={refreshAll}><RefreshCw />Refresh</Button></div>
       </div>
       <div className="mb-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4"><SummaryTile label="Out of stock" value={outOfStock.length} variant="destructive" onClick={() => scrollTo('out-of-stock')} /><SummaryTile label="Low stock" value={lowStock.length} variant="warning" onClick={() => scrollTo('low-stock')} /><SummaryTile label="Maintenance due" value={maintenance.length} onClick={() => scrollTo('maintenance-due')} /><SummaryTile label="Unavailable drinks" value={unavailableProducts.length} onClick={() => scrollTo('unavailable-drinks')} /></div>
