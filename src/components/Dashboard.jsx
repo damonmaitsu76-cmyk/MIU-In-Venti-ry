@@ -3,6 +3,7 @@ import { RefreshCw } from 'lucide-react'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { UpdateQuantityDialog } from '@/components/IngredientList'
 import StatusBadge from '@/components/StatusBadge'
+import PageHeader from '@/components/PageHeader'
 import { supabase } from '@/supabaseClient'
 import { getMaintenanceState } from '@/lib/maintenance'
 import { fetchPackageBlockedProducts } from '@/lib/recipes'
@@ -90,10 +91,8 @@ export default function Dashboard({ onInventoryChanged }) {
 
   return (
     <section className="mx-auto max-w-7xl scroll-mt-4 text-left">
-      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div><h1 className="font-heading text-2xl font-semibold tracking-tight text-foreground">Dashboard</h1><p className="mt-1 text-sm text-muted-foreground">Stock alerts, maintenance work, and unavailable drinks.</p>{liveStatus !== 'SUBSCRIBED' && <p className="mt-1 text-sm text-muted-foreground" role="status">Live updates paused — showing last loaded data.</p>}</div>
-        <div className="flex flex-wrap gap-2"><a href="#/activity" className={buttonVariants({ variant: 'outline' })}>Activity log</a><Button variant="outline" onClick={refreshAll}><RefreshCw />Refresh</Button></div>
-      </div>
+      <PageHeader title="Dashboard" description="Stock alerts, maintenance work, and unavailable drinks." actions={<><a href="#/activity" className={buttonVariants({ variant: 'outline' })}>Activity log</a><Button variant="outline" onClick={refreshAll}><RefreshCw />Refresh</Button></>} />
+      {liveStatus !== 'SUBSCRIBED' && <p className="mb-4 text-sm text-muted-foreground" role="status">Live updates paused — showing last loaded data.</p>}
       <div className="mb-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4"><SummaryTile label="Out of stock" value={outOfStock.length} variant="destructive" onClick={() => scrollTo('out-of-stock')} /><SummaryTile label="Low stock" value={lowStock.length} variant="warning" onClick={() => scrollTo('low-stock')} /><SummaryTile label="Maintenance due" value={maintenance.length} onClick={() => scrollTo('maintenance-due')} /><SummaryTile label="Unavailable drinks" value={unavailableProducts.length} onClick={() => scrollTo('unavailable-drinks')} /></div>
       {alertsError && <div className="mb-6 rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive"><p>{alertsError}</p><Button className="mt-2" variant="outline" size="sm" onClick={loadAlerts}>Retry alerts</Button></div>}
       {alertsLoading ? <div className="grid gap-3 md:grid-cols-2"><div className="h-48 animate-pulse rounded-xl bg-muted" /><div className="h-48 animate-pulse rounded-xl bg-muted" /></div> : <div className="grid gap-4 xl:grid-cols-2"><AlertPanel id="out-of-stock" title="Out of stock" empty="Everything is currently in stock." items={outOfStock} ariaLabel="Out of stock items" renderItem={(item) => <StockAlertRow item={item} onUpdated={loadAlerts} />} /><AlertPanel id="low-stock" title="Low stock · reorder" empty="No low-stock items need reordering." items={lowStock} ariaLabel="Low-stock items" renderItem={(item) => <StockAlertRow item={item} onUpdated={loadAlerts} />} /><AlertPanel id="maintenance-due" title="Maintenance due" empty="No maintenance work is due." items={maintenance} ariaLabel="Maintenance due items" renderItem={({ item, state }) => <MaintenanceAlertRow item={item} state={state} onUpdated={loadAlerts} />} /><AlertPanel id="unavailable-drinks" title="Unavailable drinks" empty="Every active drink has an available recipe." items={unavailableProducts} ariaLabel="Unavailable drinks" renderItem={(product) => <UnavailableProductRow product={product} />} /></div>}
@@ -109,7 +108,7 @@ function AlertPanel({ id, title, empty, items, ariaLabel, renderItem }) {
   const scrollable = items.length > ALERT_VISIBLE_ROWS
   return (
     <section id={id} className="scroll-mt-4 rounded-xl border bg-card p-4">
-      <div className="mb-3 flex items-center justify-between gap-3"><h2 className="text-lg font-semibold text-foreground">{title}</h2><span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium tabular-nums text-muted-foreground">{items.length}</span></div>
+      <div className="mb-3 flex items-center justify-between gap-3"><h2 className="section-title">{title}</h2><span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium tabular-nums text-muted-foreground">{items.length}</span></div>
       {items.length ? <><div className="scroll-thin grid content-start gap-2 overflow-y-auto overscroll-contain pr-1" style={{ maxHeight: ALERT_LIST_MAX_HEIGHT }} {...(scrollable ? { tabIndex: 0, role: 'region', 'aria-label': ariaLabel } : {})}>{items.map((item) => <div key={item.item?.inventory_item_id || item.inventory_item_id || item.product_id} className="h-[5.25rem]">{renderItem(item)}</div>)}</div></> : <p className="text-sm text-muted-foreground">{empty}</p>}
     </section>
   )

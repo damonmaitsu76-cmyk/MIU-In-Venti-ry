@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch'
 import NumberField from '@/components/NumberField'
 import StatusBadge from '@/components/StatusBadge'
+import PageHeader from '@/components/PageHeader'
 import { CATEGORY_OPTIONS, categoryLabel, ITEM_TYPES, optionsToItems, STATUS_OPTIONS } from '@/lib/inventoryConfig'
 import { getMaintenanceState } from '@/lib/maintenance'
 import { parseAmount } from '@/lib/numbers'
@@ -88,13 +89,12 @@ export default function IngredientList({ onInventoryChanged }) {
 
   return (
     <section className="mx-auto max-w-7xl text-left">
-      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div><h1 className="font-heading text-2xl font-semibold tracking-tight text-foreground">Inventory</h1><p className="mt-1 text-sm text-muted-foreground">Track ingredients, packaging, and equipment.</p></div>
+      <PageHeader title="Inventory" description="Track ingredients, packaging, and equipment." actions={
         <Dialog open={addOpen} onOpenChange={setAddOpen}>
           <DialogTrigger render={<Button />}><Plus />Add inventory item</DialogTrigger>
           {addOpen && <InventoryItemDialog items={items} onSaved={() => { setAddOpen(false); refresh() }} />}
         </Dialog>
-      </div>
+      } />
 
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center">
         <div className="flex flex-wrap gap-2" aria-label="Inventory type filters">

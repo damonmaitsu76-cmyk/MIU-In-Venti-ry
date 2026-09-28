@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import ItemSelect from '@/components/ItemSelect'
 import NumberField from '@/components/NumberField'
 import Stepper from '@/components/Stepper'
+import PageHeader from '@/components/PageHeader'
 import { formatPeso } from '@/lib/format'
 import { imageUrlFor } from '@/lib/images'
 import { parseAmount } from '@/lib/numbers'
@@ -123,10 +124,7 @@ export default function OrderEntry({ onInventoryChanged }) {
 
   return (
     <section className="mx-auto max-w-7xl pb-32 text-left lg:pb-0">
-      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div><h1 className="font-heading text-2xl font-semibold tracking-tight text-foreground">Order entry</h1><p className="mt-1 text-sm text-muted-foreground">Build an order first; inventory is deducted only at checkout.</p></div>
-        <Button variant="outline" onClick={() => setCustomOrderOpen(true)}><UtensilsCrossed />Custom order</Button>
-      </div>
+      <PageHeader title="Order entry" description="Build an order first; inventory is deducted only at checkout." actions={<Button variant="outline" onClick={() => setCustomOrderOpen(true)}><UtensilsCrossed />Custom order</Button>} />
       <div className="grid min-w-0 gap-6 lg:grid-cols-[minmax(0,1fr)_24rem]">
         <div className="min-w-0">
           {loadError && <div className="mb-4 rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive"><p>{loadError}</p><Button className="mt-2" variant="outline" size="sm" onClick={loadOrderData}>Retry</Button></div>}

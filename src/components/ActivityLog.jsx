@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Archive, ArchiveRestore, ClipboardCheck, Download, History, ListChecks, PackageMinus, PackagePlus, Pencil, Plus, RefreshCw, ShoppingCart, Trash2, Wrench } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import PageHeader from '@/components/PageHeader'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -191,7 +192,8 @@ export default function ActivityLog() {
 
   return (
     <section className="mx-auto max-w-5xl text-left">
-      <div className="mb-6"><h1 className="font-heading text-2xl font-semibold tracking-tight text-foreground">Activity</h1><p className="mt-1 text-sm text-muted-foreground">Every stock change and product edit — who made it, what changed, and when. Newest first.</p>{liveStatus !== 'SUBSCRIBED' && <div className="mt-2 flex flex-wrap items-center gap-2"><p className="text-sm text-muted-foreground" role="status">Live updates paused — showing last loaded data.</p><Button variant="outline" size="sm" onClick={() => setRefreshVersion((version) => version + 1)}><RefreshCw />Refresh</Button></div>}</div>
+      <PageHeader title="Activity" description="Every stock change and product edit — who made it, what changed, and when. Newest first." />
+      {liveStatus !== 'SUBSCRIBED' && <div className="mb-4 flex flex-wrap items-center gap-2"><p className="text-sm text-muted-foreground" role="status">Live updates paused — showing last loaded data.</p><Button variant="outline" size="sm" onClick={() => setRefreshVersion((version) => version + 1)}><RefreshCw />Refresh</Button></div>}
       <div className="mb-4 grid gap-3 rounded-xl border bg-card p-4 sm:grid-cols-2 lg:grid-cols-4">
         <FilterSelect label="Date range" value={dateRange} onValueChange={setDateRange} options={DATE_RANGE_OPTIONS} />
         <FilterSelect label="Show" value={show} onValueChange={handleShowChange} options={SHOW_OPTIONS} />

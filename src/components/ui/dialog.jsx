@@ -44,7 +44,7 @@ function DialogOverlay({
     <DialogPrimitive.Backdrop
       data-slot="dialog-overlay"
       className={cn(
-        "fixed inset-0 isolate z-50 bg-black/10 duration-[240ms] ease-out motion-reduce:duration-0 supports-backdrop-filter:backdrop-blur-xs data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0",
+    "fixed inset-0 isolate z-50 bg-matcha-950/35 duration-[240ms] ease-out motion-reduce:duration-0 supports-backdrop-filter:backdrop-blur-xs data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0",
         className
       )}
       {...props}
@@ -65,7 +65,7 @@ function DialogContent({
       <DialogPrimitive.Popup
         data-slot="dialog-content"
         className={cn(
-          "fixed top-1/2 left-1/2 z-50 flex max-h-[90dvh] w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-xl bg-popover text-sm text-popover-foreground ring-1 ring-foreground/10 duration-[240ms] ease-out motion-reduce:duration-0 outline-none data-open:animate-in data-open:fade-in-0 data-open:slide-in-from-bottom-2 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
+          "fixed top-1/2 left-1/2 z-50 flex max-h-[90dvh] w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-3xl bg-popover text-sm text-popover-foreground shadow-[0_30px_80px_-30px_rgb(43_74_46/0.55)] ring-1 ring-foreground/10 duration-[240ms] ease-out motion-reduce:duration-0 outline-none data-open:animate-in data-open:fade-in-0 data-open:slide-in-from-bottom-2 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
           CONTENT_SIZES[size],
           className
         )}
@@ -100,7 +100,7 @@ function DialogHeader({
   return (
     <div
       data-slot="dialog-header"
-      className={cn("flex shrink-0 flex-col gap-2 px-6 pt-6 pb-4 pr-14", className)}
+      className={cn("flex shrink-0 flex-col gap-2 bg-gradient-to-b from-matcha-100/80 to-transparent px-6 pt-7 pb-5 pr-14", className)}
       {...props}
     />
   )
@@ -151,7 +151,7 @@ function DialogTitle({
   return (
     <DialogPrimitive.Title
       data-slot="dialog-title"
-      className={cn("font-heading leading-none font-medium", className)}
+      className={cn("font-display text-[1.75rem] leading-tight font-normal tracking-[0.01em] text-matcha-900", className)}
       {...props}
     />
   )
