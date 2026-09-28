@@ -34,7 +34,7 @@ export default function Login() {
   return (
     <section data-page="login" className="relative isolate grid min-h-dvh place-items-center p-4 sm:p-8">
       <PageBackdrop animated rich />
-      <div className="relative z-10 flex w-full max-w-md flex-col overflow-hidden rounded-[2rem] shadow-[0_30px_80px_-30px_rgb(43_74_46/0.55)] md:max-w-[1120px] md:flex-row">
+      <div className="relative z-10 flex w-full max-w-md flex-col overflow-hidden rounded-[2rem] shadow-[0_30px_80px_-30px_rgb(43_74_46/0.55)] md:max-w-[1360px] md:flex-row">
         <div className="relative hidden shrink-0 flex-col justify-between overflow-hidden p-10 md:flex md:w-[46%] lg:p-12">
           <img src={heroPhoto} alt="" className="absolute inset-0 size-full object-cover" />
           <div aria-hidden className="absolute inset-0 bg-[rgba(63,94,61,0.2)]" />
