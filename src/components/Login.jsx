@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import Wordmark from '@/components/Wordmark'
 import LogoBadge from '@/components/LogoBadge'
+import PageBackdrop from '@/components/PageBackdrop'
 import heroPhoto from '@/assets/heroic-brevities.jpg'
 
 export default function Login() {
@@ -29,8 +30,9 @@ export default function Login() {
   }
 
   return (
-    <section className="flex min-h-dvh items-center justify-center bg-[#dfcba8] p-4 sm:p-6">
-      <div className="flex w-full max-w-md flex-col overflow-hidden rounded-[24px] bg-white shadow-[0px_12px_40px_0px_rgba(28,38,30,0.04)] md:h-[min(560px,calc(100dvh-3rem))] md:min-h-[520px] md:max-w-[920px] md:flex-row">
+    <section data-page="login" className="relative isolate grid min-h-dvh place-items-center p-4 sm:p-8">
+      <PageBackdrop animated rich />
+      <div className="relative z-10 flex w-full max-w-md flex-col overflow-hidden rounded-[2rem] shadow-[0_30px_80px_-30px_rgb(43_74_46/0.55)] md:max-w-[1120px] md:flex-row">
         <div className="relative hidden shrink-0 flex-col justify-between overflow-hidden p-10 md:flex md:w-[46%] lg:p-12">
           <img src={heroPhoto} alt="" className="absolute inset-0 size-full object-cover" />
           <div aria-hidden className="absolute inset-0 bg-[rgba(63,94,61,0.2)]" />
@@ -53,22 +55,20 @@ export default function Login() {
           </div>
         </div>
 
-        <div className="flex w-full flex-col justify-between p-8 sm:p-12 md:min-w-0 md:flex-1 md:overflow-y-auto md:px-12 md:py-10 lg:px-14">
-          <div className="mb-6 flex w-full items-center justify-center gap-4">
-            <LogoBadge size="clamp(64px, 7vw, 80px)" alt="MIU In-Venti-ry" />
+        <div className="flex w-full min-w-0 flex-col justify-center bg-cream-50 p-6 sm:p-9 md:flex-1" style={{ '--lockup-logo': 'clamp(8rem, 26dvh, 15rem)' }}>
+          <div className="flex w-full flex-wrap items-center justify-center gap-x-6 gap-y-3">
+            <LogoBadge size="var(--lockup-logo)" alt="MIU In-Venti-ry" />
             <Wordmark
               size="sm"
               tone="dark"
-              className="[&_span:nth-child(1)]:text-[28px] [&_span:nth-child(2)]:text-[28px] [&_span:nth-child(3)]:text-[28px] [&_span:nth-child(4)]:text-[28px] [&_span:nth-child(5)]:text-[28px]"
+              className="max-w-full text-center [&_span]:text-[clamp(2.5rem,calc(var(--lockup-logo)*0.34),5.25rem)]"
             />
           </div>
 
-          {mode === 'signin' ? (
-            <form onSubmit={handleSubmit} className="flex flex-col gap-6 text-left">
-              <p className="font-['Instrument_Sans_Variable'] text-sm text-[#526055]">
-                Sign in to manage stock levels and logs
-              </p>
+          <p className="mt-5 text-center text-lg text-muted-foreground">Sign in to manage stock levels and logs</p>
 
+          {mode === 'signin' ? (
+            <form onSubmit={handleSubmit} className="mt-6 flex flex-col gap-4 text-left">
               <div className="flex flex-col gap-4">
                 <div className="flex flex-col gap-1.5">
                   <Label htmlFor="email" className="font-['Instrument_Sans_Variable'] text-[13px] font-semibold text-[#526055]">
@@ -82,7 +82,7 @@ export default function Login() {
                     placeholder="you@miumatcha.jp"
                     autoComplete="email"
                     required
-                    className="h-auto rounded-lg border-[#e4e3db] p-3 font-['Instrument_Sans_Variable'] text-sm text-[#1e261f] placeholder:text-[#87968b] focus-visible:border-primary focus-visible:ring-primary/25"
+                    className="h-12 rounded-xl border-input bg-cream-100 p-3 font-['Instrument_Sans_Variable'] text-sm text-foreground placeholder:text-muted-foreground focus-visible:border-primary focus-visible:ring-primary/25"
                   />
                 </div>
 
@@ -107,7 +107,7 @@ export default function Login() {
                       onChange={(e) => setPassword(e.target.value)}
                       autoComplete="current-password"
                       required
-                      className="h-auto rounded-lg border-[#e4e3db] p-3 pr-10 font-['Instrument_Sans_Variable'] text-sm text-[#1e261f] focus-visible:border-primary focus-visible:ring-primary/25"
+                      className="h-12 rounded-xl border-input bg-cream-100 p-3 pr-10 font-['Instrument_Sans_Variable'] text-sm text-foreground focus-visible:border-primary focus-visible:ring-primary/25"
                     />
                     <button
                       type="button"
@@ -124,7 +124,7 @@ export default function Login() {
               {error && <p className="font-['Instrument_Sans_Variable'] text-sm text-destructive">{error}</p>}
 
               <div className="flex flex-col gap-4">
-                <Button type="submit" disabled={loading} className="h-auto rounded-lg p-3.5 font-['Instrument_Sans_Variable'] text-[15px] font-semibold">
+                <Button type="submit" disabled={loading} className="h-12 rounded-xl font-['Instrument_Sans_Variable'] text-[15px] font-semibold shadow-[0_12px_24px_-14px_rgb(var(--shadow-tint)/0.8)]">
                   {loading ? 'Signing in…' : 'Sign in'}
                 </Button>
                 <p className="text-center font-['Instrument_Sans_Variable'] text-[13px] text-[#87968b]">
@@ -133,9 +133,9 @@ export default function Login() {
               </div>
             </form>
           ) : (
-            <div className="flex flex-col gap-6 text-left">
+            <div className="mt-6 flex flex-col gap-6 text-left">
               <p className="font-['Instrument_Sans_Variable'] text-sm text-[#526055]">
-                Password resets aren&apos;t self-service yet — email your cafe admin and ask them to reset it for you from the Supabase dashboard.
+                Password resets aren&apos;t self-service yet — email your cafe admin and ask them to reset it for you.
               </p>
               {/* A real reset flow can replace this message once an update-password page exists. */}
               <button
