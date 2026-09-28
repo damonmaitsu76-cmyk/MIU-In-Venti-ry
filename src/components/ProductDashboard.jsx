@@ -10,11 +10,13 @@ import ImageUpload from '@/components/ImageUpload'
 import ItemSelect from '@/components/ItemSelect'
 import NumberField from '@/components/NumberField'
 import PageHeader from '@/components/PageHeader'
+import EmptyState from '@/components/EmptyState'
 import { formatPeso } from '@/lib/format'
 import { imageUrlFor, uploadProductImage } from '@/lib/images'
 import { parseAmount } from '@/lib/numbers'
 import { canBeInRecipe, isPackTracked, recipeUnitLabel } from '@/lib/units'
 import { withTimeout } from '@/lib/withTimeout'
+import { toast } from '@/lib/toast'
 
 const emptyRecipeRow = () => ({ key: crypto.randomUUID(), inventory_item_id: '', quantity_required: '' })
 
@@ -30,10 +32,10 @@ export default function ProductDashboard() {
   const [inventory, setInventory] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
-  const [notice, setNotice] = useState(null)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [selectedProduct, setSelectedProduct] = useState(null)
   const cancelledRef = useRef(false)
+  useEffect(() => { if (error) toast.error(`Products: ${error}`) }, [error])
 
   useEffect(() => {
     cancelledRef.current = false
@@ -56,14 +58,20 @@ export default function ProductDashboard() {
   }, [loadDashboard])
   function openNewProduct() { setSelectedProduct(null); setDialogOpen(true) }
   function openEditProduct(product) { setSelectedProduct(product); setDialogOpen(true) }
-  function handleProductDeleted(message) { setNotice(message || null); loadDashboard() }
+  function handleProductDeleted() { loadDashboard() }
 
   return (
     <section className="mx-auto max-w-7xl text-left">
       <PageHeader title="Products" description="Manage menu items and the inventory recipe behind each one." actions={<Button onClick={openNewProduct}><Plus />Add product</Button>} />
       {error && <div className="mb-4 rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive"><p>{error}</p><Button className="mt-2" variant="outline" size="sm" onClick={loadDashboard}>Retry</Button></div>}
-      {notice && <p className="mb-4 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800" role="status">{notice}</p>}
-      {loading ? <div className="grid gap-2 rounded-xl border p-4"><div className="h-12 animate-pulse rounded bg-muted" /><div className="h-12 animate-pulse rounded bg-muted" /></div> : <div className="surface-card overflow-hidden rounded-2xl"><table className="w-full text-sm"><thead className="border-b bg-matcha-100/70"><tr><th className="h-12 px-4 text-left text-sm font-semibold text-matcha-900">Image</th><th className="px-4 text-left text-sm font-semibold text-matcha-900">Name</th><th className="px-4 text-left text-sm font-semibold text-matcha-900">Price</th><th className="px-4 text-left text-sm font-semibold text-matcha-900">Status</th><th className="px-4 text-right text-sm font-semibold text-matcha-900">Actions</th></tr></thead><tbody>{products.map((product) => <tr key={product.product_id} className="border-b last:border-0 hover:bg-matcha-50"><td className="p-4"><ProductThumbnail product={product} /></td><td className="p-4 font-medium text-foreground">{product.product_name}</td><td className="p-4 tabular-nums">{formatPeso(product.price)}</td><td className="p-4"><span className={product.is_active ? 'text-emerald-700' : 'text-muted-foreground'}>{product.is_active ? 'Active' : 'Archived'}</span></td><td className="p-4 text-right"><div className="inline-flex gap-2"><Button variant="outline" size="sm" onClick={() => openEditProduct(product)}>Edit</Button><DeleteProductButton product={product} onDeleted={handleProductDeleted} /></div></td></tr>)}{!products.length && <tr><td colSpan={5} className="p-10 text-center text-muted-foreground">No products yet. Add a product and its recipe to make it orderable.</td></tr>}</tbody></table></div>}
+      {loading ? <div className="grid gap-2 rounded-xl border p-4"><div className="h-12 animate-pulse rounded bg-muted" /><div className="h-12 animate-pulse rounded bg-muted" /></div> : <div className="surface-card hidden overflow-hidden rounded-2xl lg:block"><table className="w-full text-sm"><thead className="border-b bg-matcha-100/70"><tr><th className="h-12 px-4 text-left text-sm font-semibold text-matcha-900">Image</th><th className="px-4 text-left text-sm font-semibold text-matcha-900">Name</th><th className="px-4 text-left text-sm font-semibold text-matcha-900">Price</th><th className="px-4 text-left text-sm font-semibold text-matcha-900">Status</th><th className="px-4 text-right text-sm font-semibold text-matcha-900">Actions</th></tr></thead><tbody>{products.map((product) => <tr key={product.product_id} className="border-b last:border-0 hover:bg-matcha-50"><td className="p-4"><ProductThumbnail product={product} /></td><td className="p-4 font-medium text-foreground">{product.product_name}</td><td className="p-4 tabular-nums">{formatPeso(product.price)}</td><td className="p-4"><span className={product.is_active ? 'text-emerald-700' : 'text-muted-foreground'}>{product.is_active ? 'Active' : 'Archived'}</span></td><td className="p-4 text-right"><div className="inline-flex gap-2"><Button variant="outline" size="sm" onClick={() => openEditProduct(product)}>Edit</Button><DeleteProductButton product={product} onDeleted={handleProductDeleted} /></div></td></tr>)}{!products.length && <tr><td colSpan={5} className="p-8"><EmptyState><p className="text-sm text-muted-foreground">No products yet. Add a product and its recipe to make it orderable.</p></EmptyState></td></tr>}</tbody></table></div>}
+      {!loading && <div className="grid gap-3 lg:hidden">
+        {products.map((product) => <article key={product.product_id} className="surface-card rounded-2xl p-4">
+          <div className="flex items-start gap-3"><ProductThumbnail product={product} /><div className="min-w-0 flex-1"><h2 className="text-lg font-semibold leading-snug text-foreground">{product.product_name}</h2><p className="mt-1 text-sm font-medium tabular-nums text-matcha-900">{formatPeso(product.price)}</p></div><span className={`rounded-full px-2 py-0.5 text-xs font-medium ${product.is_active ? 'bg-matcha-100 text-matcha-900' : 'bg-sand-200 text-hojicha-700'}`}>{product.is_active ? 'Active' : 'Archived'}</span></div>
+          <div className="mt-4 flex flex-wrap gap-2 border-t pt-3"><Button variant="outline" size="sm" onClick={() => openEditProduct(product)}>Edit</Button><DeleteProductButton product={product} onDeleted={handleProductDeleted} /></div>
+        </article>)}
+        {!products.length && <EmptyState className="surface-card rounded-2xl p-8"><p className="text-sm text-muted-foreground">No products yet. Add a product and its recipe to make it orderable.</p></EmptyState>}
+      </div>}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>{dialogOpen && <ProductDialog key={selectedProduct?.product_id ?? 'new'} product={selectedProduct} inventory={inventory} onClose={() => setDialogOpen(false)} onSaved={loadDashboard} />}</Dialog>
     </section>
   )
@@ -73,6 +81,7 @@ function DeleteProductButton({ product, onDeleted }) {
   const [open, setOpen] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [error, setError] = useState(null)
+  useEffect(() => { if (error) toast.error(error) }, [error])
 
   async function deleteProduct() {
     setDeleting(true); setError(null)
@@ -83,7 +92,10 @@ function DeleteProductButton({ product, onDeleted }) {
       const { error: imageError } = await supabase.storage.from('product-images').remove([product.image_path])
       if (imageError) cleanupMessage = 'Product deleted, but its image could not be removed.'
     }
-    setDeleting(false); setOpen(false); onDeleted(cleanupMessage)
+    setDeleting(false); setOpen(false)
+    if (cleanupMessage) toast.warning(cleanupMessage)
+    else toast.success(`${product.product_name} deleted.`)
+    onDeleted()
   }
 
   return (
@@ -105,6 +117,7 @@ function ProductDialog({ product, inventory, onClose, onSaved }) {
   const [imageRemoved, setImageRemoved] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
+  useEffect(() => { if (error) toast.error(error) }, [error])
 
   const ingredientItems = useMemo(() => inventory.filter((item) => item.item_type === 'ingredient'), [inventory])
   const materialItems = useMemo(() => inventory.filter((item) => item.item_type === 'material'), [inventory])
@@ -158,7 +171,7 @@ function ProductDialog({ product, inventory, onClose, onSaved }) {
       if (saveError) throw saveError
       const oldPath = product?.image_path
       if (oldPath && oldPath !== imagePath) await supabase.storage.from('product-images').remove([oldPath])
-      setSaving(false); onClose(); onSaved()
+      setSaving(false); toast.success(`${name.trim()} ${product ? 'saved' : 'added'}.`); onClose(); onSaved()
     } catch (saveError) {
       if (uploadedPath) await supabase.storage.from('product-images').remove([uploadedPath])
       setSaving(false); setError(saveError.message || 'Could not save this product.')
@@ -170,7 +183,7 @@ function ProductDialog({ product, inventory, onClose, onSaved }) {
       <DialogHeader><DialogTitle>{product ? 'Edit product' : 'Add product'}</DialogTitle></DialogHeader>
       <form onSubmit={save} className="flex min-h-0 flex-1 flex-col">
         <DialogBody className="grid gap-6">
-          <fieldset className="grid gap-4"><legend className="text-base font-semibold text-foreground">Details</legend><div className="grid gap-4 sm:grid-cols-2"><div className="grid gap-1.5"><Label htmlFor="product-name">Name</Label><Input id="product-name" value={name} onChange={(event) => setName(event.target.value)} /></div><div className="grid gap-1.5"><Label htmlFor="product-price">Price</Label><NumberField id="product-price" value={price} onValueChange={setPrice} min={0} decimals={2} suffix="₱" /></div></div><div className="grid gap-1.5"><Label>Image</Label><ImageUpload product={imageRemoved ? null : product} file={imageFile} onFileChange={(file) => { setImageFile(file); setImageRemoved(false) }} onRemove={() => { setImageFile(null); setImageRemoved(true) }} disabled={saving} /></div><div className="flex items-center gap-2"><Switch id="product-active" checked={active} onCheckedChange={setActive} /><Label htmlFor="product-active" className="cursor-pointer font-normal">Active and available to order</Label></div></fieldset>
+          <fieldset className="grid gap-4"><legend className="section-title">Details</legend><div className="grid gap-4 sm:grid-cols-2"><div className="grid gap-1.5"><Label htmlFor="product-name">Name</Label><Input id="product-name" value={name} onChange={(event) => setName(event.target.value)} /></div><div className="grid gap-1.5"><Label htmlFor="product-price">Price</Label><NumberField id="product-price" value={price} onValueChange={setPrice} min={0} decimals={2} suffix="₱" /></div></div><div className="grid gap-1.5"><Label>Image</Label><ImageUpload product={imageRemoved ? null : product} file={imageFile} onFileChange={(file) => { setImageFile(file); setImageRemoved(false) }} onRemove={() => { setImageFile(null); setImageRemoved(true) }} disabled={saving} /></div><div className="flex items-center gap-2"><Switch id="product-active" checked={active} onCheckedChange={setActive} /><Label htmlFor="product-active" className="cursor-pointer font-normal">Active and available to order</Label></div></fieldset>
           {loadingRecipe ? <p className="text-sm text-muted-foreground">Loading recipe…</p> : <><RecipeSection title="Ingredients" description="These are the drink's consumable ingredients." rows={ingredientRows} items={ingredientItems} selectedIds={selectedIds} onAdd={() => setIngredientRows((rows) => [...rows, emptyRecipeRow()])} onUpdate={(key, field, value) => changeRow(setIngredientRows, key, field, value)} onRemove={(key) => removeRow(setIngredientRows, key, true)} keepOne /><RecipeSection title="Materials" description="Materials can be added only when tracked by piece. Items tracked by whole package (Cups, Straws, Cellophane, Parchment Paper, Tissue) must first be given a pieces-per-package number in Inventory → Edit → Set pieces per pkg." rows={materialRows} items={materialItems} selectedIds={selectedIds} onAdd={() => setMaterialRows((rows) => [...rows, emptyRecipeRow()])} onUpdate={(key, field, value) => changeRow(setMaterialRows, key, field, value)} onRemove={(key) => removeRow(setMaterialRows, key, false)} /></>}
         </DialogBody>
         {displayedError && <p className="mx-6 mb-3 shrink-0 rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive" role="alert">{displayedError}</p>}
@@ -183,7 +196,7 @@ function ProductDialog({ product, inventory, onClose, onSaved }) {
 function RecipeSection({ title, description, rows, items, selectedIds, onAdd, onUpdate, onRemove, keepOne }) {
   return (
     <fieldset className="grid gap-3 rounded-2xl border border-sand-300 bg-cream-50/60 p-4">
-      <legend className="px-1 text-base font-semibold text-foreground">{title}</legend>
+      <legend className="section-title px-1">{title}</legend>
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-sm text-muted-foreground">{description}</p>
         <Button type="button" variant="outline" size="sm" onClick={onAdd}><Plus />Add {title === 'Ingredients' ? 'ingredient' : 'material'}</Button>

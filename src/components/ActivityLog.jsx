@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Archive, ArchiveRestore, ClipboardCheck, Download, History, ListChecks, PackageMinus, PackagePlus, Pencil, Plus, RefreshCw, ShoppingCart, Trash2, Wrench } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import PageHeader from '@/components/PageHeader'
+import EmptyState from '@/components/EmptyState'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -11,6 +12,7 @@ import { dayBoundary, formatManilaDateTime, formatManilaTime, formatRelative, ma
 import { optionsToItems } from '@/lib/inventoryConfig'
 import { formatStock } from '@/lib/units'
 import { withTimeout } from '@/lib/withTimeout'
+import { toast } from '@/lib/toast'
 
 const PAGE_SIZE = 25
 const CSV_PAGE_SIZE = 1000
@@ -87,11 +89,11 @@ export default function ActivityLog() {
   const [auditResult, setAuditResult] = useState({ key: '', rows: [], total: null, error: null, hasMore: false })
   const [loadingMore, setLoadingMore] = useState(false)
   const [exporting, setExporting] = useState(false)
-  const [exportNote, setExportNote] = useState(null)
   const [refreshVersion, setRefreshVersion] = useState(0)
   const [liveStatus, setLiveStatus] = useState('SUBSCRIBED')
   const liveRef = useRef(null)
   const refreshTimerRef = useRef(null)
+  useEffect(() => { if (auditResult.error) toast.error(`Activity: ${auditResult.error}`) }, [auditResult.error])
 
   const filters = useMemo(() => ({ dateRange, show, action, actorId, search: debouncedSearch, customStart, customEnd }), [action, actorId, customEnd, customStart, dateRange, debouncedSearch, show])
   const filterKey = useMemo(() => JSON.stringify(filters), [filters])
@@ -158,7 +160,7 @@ export default function ActivityLog() {
     setAuditResult((current) => ({ ...current, rows: [...current.rows, ...(data || [])], hasMore: (data || []).length === PAGE_SIZE, error: null }))
   }
   async function exportCsv() {
-    setExporting(true); setExportNote(null)
+    setExporting(true)
     const rows = []
     let cursor = null
     let capped = false
@@ -182,9 +184,10 @@ export default function ActivityLog() {
       link.download = `miu-activity-${manilaDateString()}.csv`
       link.click()
       URL.revokeObjectURL(url)
-      if (capped) setExportNote(`Export capped at ${CSV_MAX_ROWS.toLocaleString()} matching changes.`)
+      if (capped) toast.warning(`CSV downloaded, capped at ${CSV_MAX_ROWS.toLocaleString()} matching changes.`)
+      else toast.success(`CSV downloaded with ${selectedRows.length.toLocaleString()} changes.`)
     } catch (error) {
-      setExportNote(error.message || 'Could not prepare the activity export.')
+      toast.error(error.message || 'Could not prepare the activity export.')
     } finally {
       setExporting(false)
     }
@@ -204,8 +207,7 @@ export default function ActivityLog() {
         <div className="flex items-end"><Button variant="ghost" className="w-full sm:w-auto" onClick={clearFilters} disabled={!filterChanged}>Clear filters</Button></div>
       </div>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3"><p className="text-sm text-muted-foreground">Showing {auditResult.rows.length} of {auditResult.total ?? auditResult.rows.length} changes</p><Button variant="outline" onClick={exportCsv} disabled={exporting}>{exporting ? 'Preparing…' : <><Download />Export CSV</>}</Button></div>
-      {exportNote && <p className="mb-4 text-sm text-muted-foreground">{exportNote}</p>}
-      {loading && !auditResult.rows.length ? <ActivitySkeleton /> : auditResult.error ? <div className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive"><p>{auditResult.error}</p><Button className="mt-2" variant="outline" size="sm" onClick={() => setRefreshVersion((version) => version + 1)}>Retry</Button></div> : !auditResult.rows.length ? <div className="rounded-xl border border-dashed p-10 text-center"><p className="text-sm text-muted-foreground">No activity matches these filters.</p><p className="mt-1 text-sm text-muted-foreground">Try a wider date range.</p><Button className="mt-3" variant="outline" onClick={clearFilters}>Clear filters</Button></div> : <div className="grid gap-6">{entriesByDay.map(({ heading, entries }) => <section key={heading}><h2 className="mb-2 w-fit rounded-full bg-matcha-100 px-3 py-1 text-sm font-semibold text-matcha-900">{heading}</h2><div className="surface-card overflow-hidden rounded-2xl">{entries.map((entry) => <ActivityEntry key={entry.key} entry={entry} />)}</div></section>)}</div>}
+      {loading && !auditResult.rows.length ? <ActivitySkeleton /> : auditResult.error ? <div className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive"><p>{auditResult.error}</p><Button className="mt-2" variant="outline" size="sm" onClick={() => setRefreshVersion((version) => version + 1)}>Retry</Button></div> : !auditResult.rows.length ? <EmptyState className="surface-card rounded-2xl p-10"><p className="text-sm text-muted-foreground">No activity matches these filters.</p><p className="mt-1 text-sm text-muted-foreground">Try a wider date range.</p><Button className="mt-3" variant="outline" onClick={clearFilters}>Clear filters</Button></EmptyState> : <div className="grid gap-6">{entriesByDay.map(({ heading, entries }) => <section key={heading}><h2 className="mb-2 w-fit rounded-full bg-matcha-100 px-3 py-1 text-sm font-semibold text-matcha-900">{heading}</h2><div className="surface-card overflow-hidden rounded-2xl">{entries.map((entry) => <ActivityEntry key={entry.key} entry={entry} />)}</div></section>)}</div>}
       {auditResult.hasMore && <div className="mt-6 text-center"><Button variant="outline" onClick={loadMore} disabled={loadingMore}>{loadingMore ? 'Loading…' : `Load ${auditResult.total - auditResult.rows.length} more`}</Button></div>}
     </section>
   )

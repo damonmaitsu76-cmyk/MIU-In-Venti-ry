@@ -10,10 +10,12 @@ import { Switch } from '@/components/ui/switch'
 import NumberField from '@/components/NumberField'
 import StatusBadge from '@/components/StatusBadge'
 import PageHeader from '@/components/PageHeader'
+import EmptyState from '@/components/EmptyState'
 import { CATEGORY_OPTIONS, categoryLabel, ITEM_TYPES, optionsToItems, STATUS_OPTIONS } from '@/lib/inventoryConfig'
 import { getMaintenanceState } from '@/lib/maintenance'
 import { parseAmount } from '@/lib/numbers'
 import { withTimeout } from '@/lib/withTimeout'
+import { toast } from '@/lib/toast'
 import { describeTracking, formatStock, fromStored, isPackTracked, resolveStorage, toStored } from '@/lib/units'
 
 const TYPE_OPTIONS = Object.entries(ITEM_TYPES).map(([value, label]) => ({ value, label }))
@@ -50,6 +52,8 @@ export default function IngredientList({ onInventoryChanged }) {
   const [addOpen, setAddOpen] = useState(false)
   const [editItem, setEditItem] = useState(null)
   const cancelledRef = useRef(false)
+
+  useEffect(() => { if (errorMsg) toast.error(`Inventory: ${errorMsg}`) }, [errorMsg])
 
   useEffect(() => {
     cancelledRef.current = false
@@ -96,17 +100,17 @@ export default function IngredientList({ onInventoryChanged }) {
         </Dialog>
       } />
 
-      <div className="surface-card mb-4 flex flex-col gap-3 rounded-2xl p-3 sm:flex-row sm:items-center">
+      <div className="surface-card mb-4 flex flex-col gap-3 rounded-2xl p-3 xl:flex-row xl:items-center">
         <div className="flex flex-wrap gap-2" aria-label="Inventory type filters">
           {[{ value: 'all', label: 'All' }, ...TYPE_OPTIONS].map((option) => <Button key={option.value} type="button" variant={itemType === option.value ? 'default' : 'outline'} onClick={() => setItemType(option.value)}>{option.label}</Button>)}
         </div>
         <div className="relative min-w-0 flex-1"><Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" /><Input value={search} onChange={(event) => setSearch(event.target.value)} className="pl-9" placeholder="Search inventory" aria-label="Search inventory" /></div>
-        <Select value={status} onValueChange={setStatus} items={optionsToItems(STATUS_OPTIONS)}><SelectTrigger className="w-full sm:w-48" aria-label="Filter by stock status"><SelectValue /></SelectTrigger><SelectContent>{STATUS_OPTIONS.map((option) => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}</SelectContent></Select>
+        <Select value={status} onValueChange={setStatus} items={optionsToItems(STATUS_OPTIONS)}><SelectTrigger className="w-full xl:w-48" aria-label="Filter by stock status"><SelectValue /></SelectTrigger><SelectContent>{STATUS_OPTIONS.map((option) => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}</SelectContent></Select>
       </div>
 
       {errorMsg && <div className="mb-4 rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive"><p>{errorMsg}</p><Button className="mt-2" variant="outline" size="sm" onClick={loadItems}>Retry</Button></div>}
 
-      {loading ? <InventorySkeleton /> : <><div className="surface-card hidden overflow-hidden rounded-2xl md:block"><table className="w-full text-sm"><thead className="border-b bg-matcha-100/70"><tr><th className="h-12 px-4 text-left text-sm font-semibold text-matcha-900">Name</th><th className="px-4 text-left text-sm font-semibold text-matcha-900">Type / category</th><th className="px-4 text-left text-sm font-semibold text-matcha-900">Quantity</th><th className="px-4 text-left text-sm font-semibold text-matcha-900">Status</th><th className="px-4 text-left text-sm font-semibold text-matcha-900">Maintenance</th><th className="px-4 text-right text-sm font-semibold text-matcha-900">Actions</th></tr></thead><tbody>{filteredItems.map((item) => <InventoryRow key={item.inventory_item_id} item={item} onUpdated={refresh} onEdit={setEditItem} />)}{!filteredItems.length && <tr><td colSpan={6} className="p-10 text-center text-muted-foreground">No inventory items match these filters.</td></tr>}</tbody></table></div><div className="grid gap-3 md:hidden">{filteredItems.map((item) => <InventoryCard key={item.inventory_item_id} item={item} onUpdated={refresh} onEdit={setEditItem} />)}{!filteredItems.length && <p className="rounded-xl border border-dashed p-8 text-center text-sm text-muted-foreground">No inventory items match these filters.</p>}</div></>}
+      {loading ? <InventorySkeleton /> : <><div className="surface-card hidden overflow-hidden rounded-2xl xl:block"><table className="w-full text-sm"><thead className="border-b bg-matcha-100/70"><tr><th className="h-12 px-4 text-left text-sm font-semibold text-matcha-900">Name</th><th className="px-4 text-left text-sm font-semibold text-matcha-900">Type / category</th><th className="px-4 text-left text-sm font-semibold text-matcha-900">Quantity</th><th className="px-4 text-left text-sm font-semibold text-matcha-900">Status</th><th className="px-4 text-left text-sm font-semibold text-matcha-900">Maintenance</th><th className="px-4 text-right text-sm font-semibold text-matcha-900">Actions</th></tr></thead><tbody>{filteredItems.map((item) => <InventoryRow key={item.inventory_item_id} item={item} onUpdated={refresh} onEdit={setEditItem} />)}{!filteredItems.length && <tr><td colSpan={6} className="p-8"><EmptyState><p className="text-sm text-muted-foreground">No inventory items match these filters.</p></EmptyState></td></tr>}</tbody></table></div><div className="grid gap-3 xl:hidden">{filteredItems.map((item) => <InventoryCard key={item.inventory_item_id} item={item} onUpdated={refresh} onEdit={setEditItem} />)}{!filteredItems.length && <EmptyState className="surface-card rounded-2xl p-8"><p className="text-sm text-muted-foreground">No inventory items match these filters.</p></EmptyState>}</div></>}
 
       <Dialog open={Boolean(editItem)} onOpenChange={(open) => { if (!open) setEditItem(null) }}>{editItem && <InventoryItemDialog key={editItem.inventory_item_id} item={editItem} items={items} onSaved={() => { setEditItem(null); refresh() }} />}</Dialog>
     </section>
@@ -129,6 +133,7 @@ function DeleteInventoryButton({ item, onDeleted }) {
   const [open, setOpen] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [error, setError] = useState(null)
+  useEffect(() => { if (error) toast.error(error) }, [error])
 
   async function deleteItem() {
     setDeleting(true); setError(null)
@@ -138,7 +143,7 @@ function DeleteInventoryButton({ item, onDeleted }) {
       setError(deleteError.code === '23503' || /recipe/i.test(deleteError.message || '') ? 'Remove this item from its recipes first.' : 'Could not delete this inventory item. Please try again.')
       return
     }
-    setOpen(false); onDeleted()
+    setOpen(false); toast.success(`${item.item_name} deleted.`); onDeleted()
   }
 
   return (
@@ -154,6 +159,7 @@ export function InventoryItemDialog({ item, items, onSaved }) {
   const [saving, setSaving] = useState(false)
   const [converting, setConverting] = useState(false)
   const [error, setError] = useState(null)
+  useEffect(() => { if (error) toast.error(error) }, [error])
   const editMode = Boolean(item)
   const categories = CATEGORY_OPTIONS[form.itemType]
   const storagePreview = resolveStorage({ trackingUnit: form.trackingUnit, piecesPerPkg: form.piecesPerPkg })
@@ -178,6 +184,7 @@ export function InventoryItemDialog({ item, items, onSaved }) {
     const result = editMode ? await supabase.from('inventory_items').update(payload).eq('inventory_item_id', item.inventory_item_id) : await supabase.from('inventory_items').insert(payload)
     setSaving(false)
     if (result.error) return setError(result.error.message)
+    toast.success(editMode ? `${name} saved.` : `${name} added to inventory.`)
     onSaved()
   }
   async function convertWholePack() {
@@ -187,6 +194,7 @@ export function InventoryItemDialog({ item, items, onSaved }) {
     const { error: convertError } = await supabase.rpc('convert_item_to_pack', { p_item_id: item.inventory_item_id, p_pack_size: packSize })
     setConverting(false)
     if (convertError) return setError(convertError.message)
+    toast.success(`${item.item_name} package conversion saved.`)
     onSaved()
   }
   return (
@@ -216,10 +224,11 @@ export function InventoryItemDialog({ item, items, onSaved }) {
 
 export function UpdateQuantityDialog({ item, onUpdated }) {
   const [open, setOpen] = useState(false); const [mode, setMode] = useState('received'); const [amount, setAmount] = useState(''); const [enteredUnit, setEnteredUnit] = useState(isPackTracked(item) ? 'pkg' : item.unit); const [note, setNote] = useState(''); const [saving, setSaving] = useState(false); const [markingDone, setMarkingDone] = useState(false); const [error, setError] = useState(null)
+  useEffect(() => { if (error) toast.error(error) }, [error])
   const numericAmount = parseAmount(amount); const storedAmount = numericAmount == null ? null : toStored(item, numericAmount, enteredUnit); const nextQuantity = mode === 'recount' ? storedAmount : Number(item.current_quantity) + (mode === 'used' ? -(storedAmount || 0) : (storedAmount || 0))
   function reset() { setMode('received'); setAmount(''); setEnteredUnit(isPackTracked(item) ? 'pkg' : item.unit); setNote(''); setError(null) }
-  async function save(event) { event.preventDefault(); if (storedAmount == null || storedAmount < 0 || (mode !== 'recount' && storedAmount === 0)) return setError('Enter a valid amount.'); if (nextQuantity < 0) return setError(`That would take ${item.item_name} below zero.`); if (note.length > 200) return setError('Notes must be 200 characters or fewer.'); setSaving(true); setError(null); const result = mode === 'recount' ? await supabase.rpc('set_inventory_count', { p_item_id: item.inventory_item_id, p_new_qty: storedAmount, p_note: note || null }) : await supabase.rpc('adjust_inventory', { p_item_id: item.inventory_item_id, p_delta: mode === 'used' ? -storedAmount : storedAmount, p_reason: mode === 'used' ? 'usage' : 'restock', p_note: note || null }); setSaving(false); if (result.error) return setError(result.error.message); setOpen(false); reset(); onUpdated() }
-  async function markDone() { setMarkingDone(true); setError(null); const { error: maintenanceError } = await supabase.from('inventory_items').update({ last_maintained_at: new Date().toISOString() }).eq('inventory_item_id', item.inventory_item_id); setMarkingDone(false); if (maintenanceError) return setError(maintenanceError.message); onUpdated() }
+  async function save(event) { event.preventDefault(); if (storedAmount == null || storedAmount < 0 || (mode !== 'recount' && storedAmount === 0)) return setError('Enter a valid amount.'); if (nextQuantity < 0) return setError(`That would take ${item.item_name} below zero.`); if (note.length > 200) return setError('Notes must be 200 characters or fewer.'); setSaving(true); setError(null); const result = mode === 'recount' ? await supabase.rpc('set_inventory_count', { p_item_id: item.inventory_item_id, p_new_qty: storedAmount, p_note: note || null }) : await supabase.rpc('adjust_inventory', { p_item_id: item.inventory_item_id, p_delta: mode === 'used' ? -storedAmount : storedAmount, p_reason: mode === 'used' ? 'usage' : 'restock', p_note: note || null }); setSaving(false); if (result.error) return setError(result.error.message); setOpen(false); reset(); toast.success(`${item.item_name} stock updated to ${formatStock(item, nextQuantity)}.`); onUpdated() }
+  async function markDone() { setMarkingDone(true); setError(null); const { error: maintenanceError } = await supabase.from('inventory_items').update({ last_maintained_at: new Date().toISOString() }).eq('inventory_item_id', item.inventory_item_id); setMarkingDone(false); if (maintenanceError) return setError(maintenanceError.message); toast.success(`${item.item_name} marked done today.`); onUpdated() }
   return (
     <Dialog open={open} onOpenChange={(nextOpen) => { setOpen(nextOpen); if (!nextOpen) reset() }}>
       <DialogTrigger render={<Button variant="outline" size="sm" />}>Update</DialogTrigger>

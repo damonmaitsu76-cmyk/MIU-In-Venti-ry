@@ -9,12 +9,14 @@ import ItemSelect from '@/components/ItemSelect'
 import NumberField from '@/components/NumberField'
 import Stepper from '@/components/Stepper'
 import PageHeader from '@/components/PageHeader'
+import EmptyState from '@/components/EmptyState'
 import { formatPeso } from '@/lib/format'
 import { imageUrlFor } from '@/lib/images'
 import { parseAmount } from '@/lib/numbers'
 import { fetchPackageBlockedProducts } from '@/lib/recipes'
 import { canBeInRecipe, formatStock } from '@/lib/units'
 import { withTimeout, withTimeoutRejecting } from '@/lib/withTimeout'
+import { toast } from '@/lib/toast'
 
 function productMax(product) {
   const value = product.max_servings ?? product.max_available_qty
@@ -48,13 +50,13 @@ export default function OrderEntry({ onInventoryChanged }) {
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState(null)
   const [checkoutError, setCheckoutError] = useState(null)
-  const [checkoutSuccess, setCheckoutSuccess] = useState(null)
   const [checkingOut, setCheckingOut] = useState(false)
   const [customOrderOpen, setCustomOrderOpen] = useState(false)
   const [mobileOrderOpen, setMobileOrderOpen] = useState(false)
   const [removingCartKeys, setRemovingCartKeys] = useState([])
   const removalTimers = useRef(new Map())
   const cancelledRef = useRef(false)
+  useEffect(() => { if (loadError) toast.error(`Order entry: ${loadError}`) }, [loadError])
 
   useEffect(() => {
     cancelledRef.current = false
@@ -79,7 +81,7 @@ export default function OrderEntry({ onInventoryChanged }) {
   const total = useMemo(() => cart.reduce((sum, line) => sum + Number(line.price || 0) * Number(line.quantity || 0), 0), [cart])
   const itemCount = useMemo(() => cart.reduce((sum, line) => sum + Number(line.quantity || 0), 0), [cart])
   function quantityInCart(productId) { return cart.find((line) => line.kind === 'standard' && String(line.product_id) === String(productId))?.quantity || 0 }
-  function clearNotices() { setCheckoutError(null); setCheckoutSuccess(null) }
+  function clearNotices() { setCheckoutError(null) }
   function cancelLineRemoval(key) {
     const timer = removalTimers.current.get(key)
     if (timer) window.clearTimeout(timer)
@@ -92,6 +94,7 @@ export default function OrderEntry({ onInventoryChanged }) {
     setRemovingCartKeys((keys) => [...keys, key])
     removalTimers.current.set(key, window.setTimeout(() => {
       setCart((lines) => lines.filter((line) => line.key !== key))
+      toast.info('Item removed from the order.')
       setRemovingCartKeys((keys) => keys.filter((currentKey) => currentKey !== key))
       removalTimers.current.delete(key)
     }, 240))
@@ -108,7 +111,7 @@ export default function OrderEntry({ onInventoryChanged }) {
       return quantity ? [...rest, { kind: 'standard', key: `product-${product.product_id}`, product_id: product.product_id, product_name: product.product_name, price: Number(product.price || 0), quantity }] : rest
     })
   }
-  function addCustomOrder(line) { clearNotices(); setCart((lines) => [...lines, line]) }
+  function addCustomOrder(line) { clearNotices(); setCart((lines) => [...lines, line]); toast.success(`${line.product_name} added to the order.`) }
   async function completeOrder() {
     if (!cart.length) return
     setCheckingOut(true); clearNotices()
@@ -117,8 +120,9 @@ export default function OrderEntry({ onInventoryChanged }) {
       : { kind: 'custom', base_product_id: line.base_product_id, qty: line.quantity, ingredients: line.ingredients })
     const { error } = await supabase.rpc('checkout_order', { p_lines: pLines })
     setCheckingOut(false)
-    if (error) { setCheckoutError(error.message); await loadOrderData(); return }
-    removalTimers.current.forEach((timer) => window.clearTimeout(timer)); removalTimers.current.clear(); setRemovingCartKeys([]); setCart([]); setCheckoutSuccess('Order completed and inventory has been updated.'); setMobileOrderOpen(false)
+    if (error) { setCheckoutError(error.message); toast.error(`Checkout could not be completed: ${error.message}`); await loadOrderData(); return }
+    removalTimers.current.forEach((timer) => window.clearTimeout(timer)); removalTimers.current.clear(); setRemovingCartKeys([]); setCart([]); setMobileOrderOpen(false)
+    toast.success('Order completed and inventory has been updated.')
     await loadOrderData(); onInventoryChanged?.()
   }
 
@@ -128,15 +132,15 @@ export default function OrderEntry({ onInventoryChanged }) {
       <div className="grid min-w-0 gap-6 lg:grid-cols-[minmax(0,1fr)_24rem]">
         <div className="min-w-0">
           {loadError && <div className="mb-4 rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive"><p>{loadError}</p><Button className="mt-2" variant="outline" size="sm" onClick={loadOrderData}>Retry</Button></div>}
-          {loading ? <div className="grid grid-cols-[repeat(auto-fill,minmax(16rem,1fr))] gap-4"><div className="h-80 animate-pulse rounded-xl bg-muted" /><div className="h-80 animate-pulse rounded-xl bg-muted" /></div> : <div className="grid grid-cols-[repeat(auto-fill,minmax(16rem,1fr))] gap-4">{products.map((product) => <ProductCard key={product.product_id} product={product} cartQuantity={quantityInCart(product.product_id)} onChangeQuantity={setProductQuantity} />)}{!products.length && <p className="col-span-full rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">There are no active products yet. Add products and recipes in the Products page.</p>}</div>}
+          {loading ? <div className="grid grid-cols-[repeat(auto-fill,minmax(16rem,1fr))] gap-4"><div className="h-80 animate-pulse rounded-xl bg-muted" /><div className="h-80 animate-pulse rounded-xl bg-muted" /></div> : <div className="grid grid-cols-[repeat(auto-fill,minmax(16rem,1fr))] gap-4">{products.map((product) => <ProductCard key={product.product_id} product={product} cartQuantity={quantityInCart(product.product_id)} onChangeQuantity={setProductQuantity} />)}{!products.length && <EmptyState className="surface-card col-span-full rounded-2xl p-8"><p className="text-sm text-muted-foreground">There are no active products yet. Add products and recipes in the Products page.</p></EmptyState>}</div>}
         </div>
-        <aside className="surface-card hidden h-fit rounded-3xl p-4 lg:sticky lg:top-6 lg:block"><OrderSummary cart={cart} removingCartKeys={removingCartKeys} total={total} checkingOut={checkingOut} checkoutError={checkoutError} checkoutSuccess={checkoutSuccess} onRemove={removeLine} onCheckout={completeOrder} /></aside>
+        <aside className="surface-card hidden h-fit rounded-3xl p-4 lg:sticky lg:top-6 lg:block"><OrderSummary cart={cart} removingCartKeys={removingCartKeys} total={total} checkingOut={checkingOut} checkoutError={checkoutError} onRemove={removeLine} onCheckout={completeOrder} /></aside>
       </div>
       <button type="button" className="fixed inset-x-3 bottom-16 z-30 flex min-h-12 items-center justify-between rounded-2xl bg-primary px-4 text-left text-sm font-semibold text-primary-foreground shadow-[0_14px_28px_-14px_rgb(var(--shadow-tint)/0.8)] lg:hidden" onClick={() => setMobileOrderOpen(true)}><span>View order · {itemCount} item{itemCount === 1 ? '' : 's'}</span><span>{formatPeso(total)}</span></button>
       <Dialog open={mobileOrderOpen} onOpenChange={setMobileOrderOpen}>
         <DialogContent size="full" className="top-auto bottom-0 translate-y-0 rounded-b-none max-w-none">
           <DialogHeader><DialogTitle>Current order</DialogTitle></DialogHeader>
-          <DialogBody className="pb-6"><OrderSummary cart={cart} removingCartKeys={removingCartKeys} total={total} checkingOut={checkingOut} checkoutError={checkoutError} checkoutSuccess={checkoutSuccess} onRemove={removeLine} onCheckout={completeOrder} /></DialogBody>
+          <DialogBody className="pb-6"><OrderSummary cart={cart} removingCartKeys={removingCartKeys} total={total} checkingOut={checkingOut} checkoutError={checkoutError} onRemove={removeLine} onCheckout={completeOrder} showHeading={false} /></DialogBody>
         </DialogContent>
       </Dialog>
       <CustomOrderDialog open={customOrderOpen} onOpenChange={setCustomOrderOpen} products={products} inventory={inventory} onAdd={addCustomOrder} />
@@ -161,8 +165,8 @@ function ProductCard({ product, cartQuantity, onChangeQuantity }) {
   return <article className={`flex min-w-0 flex-col surface-card overflow-hidden rounded-3xl ${unavailable ? 'opacity-65' : ''}`}><div className="aspect-[4/3] bg-gradient-to-br from-matcha-100 to-matcha-300">{imageUrl ? <img className="size-full object-cover" src={imageUrl} alt="" /> : <div className="flex size-full items-center justify-center"><Coffee className="size-10 text-matcha-800/70" /></div>}</div><div className="flex flex-1 flex-col gap-3 p-4"><div className="flex min-w-0 items-start gap-3"><h2 className="min-w-0 flex-1 line-clamp-2 text-lg font-semibold leading-snug text-foreground">{product.product_name}</h2><span className={`shrink-0 whitespace-nowrap font-semibold tabular-nums ${noPrice ? 'text-muted-foreground' : 'text-foreground'}`}>{noPrice ? 'Set price' : formatPeso(product.price)}</span></div><p className={`text-sm ${availabilityClass}`}>{availability}</p><div className="mt-auto"><Stepper value={cartQuantity} onChange={(quantity) => onChangeQuantity(product, quantity)} min={0} max={unavailable ? 0 : max} label={`${product.product_name} in current order`} /></div></div></article>
 }
 
-function OrderSummary({ cart, removingCartKeys, total, checkingOut, checkoutError, checkoutSuccess, onRemove, onCheckout }) {
-  return <div className="grid gap-3"><div className="flex items-center justify-between"><h2 className="section-title">Current order</h2><ShoppingCart className="size-5 text-muted-foreground" /></div>{cart.length ? <><div className="grid gap-3">{cart.map((line) => <CartLine key={line.key} line={line} removing={removingCartKeys.includes(line.key)} onRemove={onRemove} />)}</div><div className="flex items-center justify-between border-t pt-3 font-semibold text-foreground"><span>Total</span><span className="font-display text-3xl tabular-nums text-matcha-900">{formatPeso(total)}</span></div>{checkoutError && <p className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">Checkout could not be completed: {checkoutError}</p>}{checkoutSuccess && <p className="rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">{checkoutSuccess}</p>}<Button className="h-12 rounded-xl" onClick={onCheckout} disabled={checkingOut}>{checkingOut ? 'Completing order…' : 'Complete order'}</Button></> : <p className="text-sm text-muted-foreground">No items in this order yet.</p>}</div>
+function OrderSummary({ cart, removingCartKeys, total, checkingOut, checkoutError, onRemove, onCheckout, showHeading = true }) {
+  return <div className="grid gap-3">{showHeading && <div className="flex items-center justify-between"><h2 className="section-title">Current order</h2><ShoppingCart className="size-5 text-muted-foreground" /></div>}{cart.length ? <><div className="grid gap-3">{cart.map((line) => <CartLine key={line.key} line={line} removing={removingCartKeys.includes(line.key)} onRemove={onRemove} />)}</div><div className="flex items-center justify-between border-t pt-3 font-semibold text-foreground"><span>Total</span><span className="font-display text-3xl tabular-nums text-matcha-900">{formatPeso(total)}</span></div>{checkoutError && <p className="rounded-xl border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive" role="alert">Checkout could not be completed: {checkoutError}</p>}<Button className="h-12 rounded-xl" onClick={onCheckout} disabled={checkingOut}>{checkingOut ? 'Completing order…' : 'Complete order'}</Button></> : <p className="text-sm text-muted-foreground">No items in this order yet.</p>}</div>
 }
 
 function CartLine({ line, removing, onRemove }) {
@@ -176,6 +180,7 @@ function CustomOrderDialog({ open, onOpenChange, products, inventory, onAdd }) {
   const [originalRows, setOriginalRows] = useState([])
   const [loadingRecipe, setLoadingRecipe] = useState(false)
   const [error, setError] = useState(null)
+  useEffect(() => { if (error) toast.error(error) }, [error])
   const availableProducts = products.filter((product) => !product.packageBlockedItemName && productMax(product) !== null && productMax(product) > 0 && Number(product.price || 0) > 0)
   const selectedProduct = availableProducts.find((product) => String(product.product_id) === String(productId))
   const productItems = Object.fromEntries(availableProducts.map((product) => [String(product.product_id), product.product_name]))

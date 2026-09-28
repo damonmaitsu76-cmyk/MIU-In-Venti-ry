@@ -4,11 +4,13 @@ import { Button, buttonVariants } from '@/components/ui/button'
 import { UpdateQuantityDialog } from '@/components/IngredientList'
 import StatusBadge from '@/components/StatusBadge'
 import PageHeader from '@/components/PageHeader'
+import EmptyState from '@/components/EmptyState'
 import { supabase } from '@/supabaseClient'
 import { getMaintenanceState } from '@/lib/maintenance'
 import { fetchPackageBlockedProducts } from '@/lib/recipes'
 import { formatStock } from '@/lib/units'
 import { withTimeout, withTimeoutRejecting } from '@/lib/withTimeout'
+import { toast } from '@/lib/toast'
 
 const ALERT_VISIBLE_ROWS = 5
 const ALERT_LIST_MAX_HEIGHT = 'calc(5 * 5.25rem + 4 * 0.5rem)'
@@ -41,6 +43,7 @@ export default function Dashboard({ onInventoryChanged }) {
   const [liveStatus, setLiveStatus] = useState('SUBSCRIBED')
   const liveRef = useRef(null)
   const cancelledRef = useRef(false)
+  useEffect(() => { if (alertsError) toast.error(`Dashboard: ${alertsError}`) }, [alertsError])
 
   useEffect(() => {
     cancelledRef.current = false
@@ -59,6 +62,7 @@ export default function Dashboard({ onInventoryChanged }) {
       setAlertsError(null)
     }
     setAlertsLoading(false)
+    return !error
   }, [])
 
   useEffect(() => { liveRef.current = { loadAlerts, onInventoryChanged } }, [loadAlerts, onInventoryChanged])
@@ -87,7 +91,7 @@ export default function Dashboard({ onInventoryChanged }) {
   const unavailableProducts = products.filter((product) => product.packageBlockedItemName || product.max_servings === null || Number(product.max_servings) === 0)
 
   function scrollTo(id) { document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' }) }
-  function refreshAll() { loadAlerts(); onInventoryChanged?.() }
+  async function refreshAll() { const updated = await loadAlerts(); onInventoryChanged?.(); if (updated) toast.info('Dashboard refreshed.') }
 
   return (
     <section className="mx-auto max-w-7xl scroll-mt-4 text-left">
@@ -111,7 +115,7 @@ function AlertPanel({ id, title, empty, items, ariaLabel, renderItem }) {
   return (
     <section id={id} className="surface-card scroll-mt-4 rounded-3xl p-4">
       <div className="mb-3 flex items-center justify-between gap-3"><h2 className="section-title">{title}</h2><span className="rounded-full bg-matcha-100 px-2 py-0.5 text-xs font-medium tabular-nums text-matcha-900">{items.length}</span></div>
-      {items.length ? <><div className="scroll-thin grid content-start gap-2 overflow-y-auto overscroll-contain pr-1" style={{ maxHeight: ALERT_LIST_MAX_HEIGHT }} {...(scrollable ? { tabIndex: 0, role: 'region', 'aria-label': ariaLabel } : {})}>{items.map((item) => <div key={item.item?.inventory_item_id || item.inventory_item_id || item.product_id} className="h-[5.25rem]">{renderItem(item)}</div>)}</div></> : <p className="text-sm text-muted-foreground">{empty}</p>}
+      {items.length ? <><div className="scroll-thin grid content-start gap-2 overflow-y-auto overscroll-contain pr-1" style={{ maxHeight: ALERT_LIST_MAX_HEIGHT }} {...(scrollable ? { tabIndex: 0, role: 'region', 'aria-label': ariaLabel } : {})}>{items.map((item) => <div key={item.item?.inventory_item_id || item.inventory_item_id || item.product_id} className="h-[5.25rem]">{renderItem(item)}</div>)}</div></> : <EmptyState className="py-5"><p className="text-sm text-muted-foreground">{empty}</p></EmptyState>}
     </section>
   )
 }

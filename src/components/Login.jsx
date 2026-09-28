@@ -8,6 +8,7 @@ import Wordmark from '@/components/Wordmark'
 import LogoBadge from '@/components/LogoBadge'
 import PageBackdrop from '@/components/PageBackdrop'
 import heroPhoto from '@/assets/heroic-brevities.jpg'
+import { toast } from '@/lib/toast'
 
 export default function Login() {
   const [email, setEmail] = useState('')
@@ -25,7 +26,8 @@ export default function Login() {
     const { error } = await supabase.auth.signInWithPassword({ email, password })
 
     setLoading(false)
-    if (error) setError(error.message)
+    if (error) { setError(error.message); toast.error(error.message) }
+    else toast.success('Signed in successfully.')
     // On success, App.jsx's onAuthStateChange listener picks up the new session.
   }
 
