@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { RefreshCw } from 'lucide-react'
+import { CupSoda, PackageX, RefreshCw, TriangleAlert, Wrench } from 'lucide-react'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { UpdateQuantityDialog } from '@/components/IngredientList'
 import StatusBadge from '@/components/StatusBadge'
@@ -93,7 +93,7 @@ export default function Dashboard({ onInventoryChanged }) {
     <section className="mx-auto max-w-7xl scroll-mt-4 text-left">
       <PageHeader title="Dashboard" description="Stock alerts, maintenance work, and unavailable drinks." actions={<><a href="#/activity" className={buttonVariants({ variant: 'outline' })}>Activity log</a><Button variant="outline" onClick={refreshAll}><RefreshCw />Refresh</Button></>} />
       {liveStatus !== 'SUBSCRIBED' && <p className="mb-4 text-sm text-muted-foreground" role="status">Live updates paused — showing last loaded data.</p>}
-      <div className="mb-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4"><SummaryTile label="Out of stock" value={outOfStock.length} variant="destructive" onClick={() => scrollTo('out-of-stock')} /><SummaryTile label="Low stock" value={lowStock.length} variant="warning" onClick={() => scrollTo('low-stock')} /><SummaryTile label="Maintenance due" value={maintenance.length} onClick={() => scrollTo('maintenance-due')} /><SummaryTile label="Unavailable drinks" value={unavailableProducts.length} onClick={() => scrollTo('unavailable-drinks')} /></div>
+      <div className="mb-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4"><SummaryTile label="Out of stock" value={outOfStock.length} variant="destructive" onClick={() => scrollTo('out-of-stock')} /><SummaryTile label="Low stock" value={lowStock.length} variant="warning" onClick={() => scrollTo('low-stock')} /><SummaryTile label="Maintenance due" value={maintenance.length} variant="maintenance" onClick={() => scrollTo('maintenance-due')} /><SummaryTile label="Unavailable drinks" value={unavailableProducts.length} variant="unavailable" onClick={() => scrollTo('unavailable-drinks')} /></div>
       {alertsError && <div className="mb-6 rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive"><p>{alertsError}</p><Button className="mt-2" variant="outline" size="sm" onClick={loadAlerts}>Retry alerts</Button></div>}
       {alertsLoading ? <div className="grid gap-3 md:grid-cols-2"><div className="h-48 animate-pulse rounded-xl bg-muted" /><div className="h-48 animate-pulse rounded-xl bg-muted" /></div> : <div className="grid gap-4 xl:grid-cols-2"><AlertPanel id="out-of-stock" title="Out of stock" empty="Everything is currently in stock." items={outOfStock} ariaLabel="Out of stock items" renderItem={(item) => <StockAlertRow item={item} onUpdated={loadAlerts} />} /><AlertPanel id="low-stock" title="Low stock · reorder" empty="No low-stock items need reordering." items={lowStock} ariaLabel="Low-stock items" renderItem={(item) => <StockAlertRow item={item} onUpdated={loadAlerts} />} /><AlertPanel id="maintenance-due" title="Maintenance due" empty="No maintenance work is due." items={maintenance} ariaLabel="Maintenance due items" renderItem={({ item, state }) => <MaintenanceAlertRow item={item} state={state} onUpdated={loadAlerts} />} /><AlertPanel id="unavailable-drinks" title="Unavailable drinks" empty="Every active drink has an available recipe." items={unavailableProducts} ariaLabel="Unavailable drinks" renderItem={(product) => <UnavailableProductRow product={product} />} /></div>}
     </section>
@@ -101,28 +101,30 @@ export default function Dashboard({ onInventoryChanged }) {
 }
 
 function SummaryTile({ label, value, variant, onClick }) {
-  return <button type="button" className={`rounded-xl border p-4 text-left transition hover:bg-muted ${variant === 'destructive' ? 'border-destructive/30' : variant === 'warning' ? 'border-amber-200' : ''}`} onClick={onClick}><p className="text-sm text-muted-foreground">{label}</p><p className="mt-1 text-3xl font-semibold tabular-nums text-foreground">{value}</p></button>
+  const Icon = { destructive: PackageX, warning: TriangleAlert, maintenance: Wrench, unavailable: CupSoda }[variant]
+  const tone = { destructive: 'border-destructive/25 bg-[color-mix(in_oklch,var(--destructive)_8%,var(--cream-100))]', warning: 'border-amber-300/70 bg-[color-mix(in_oklch,#e0a526_14%,var(--cream-100))]', maintenance: 'bg-matcha-100', unavailable: 'bg-sand-200' }[variant]
+  return <button type="button" className={`relative overflow-hidden rounded-3xl border p-5 text-left shadow-[0_14px_32px_-20px_rgb(var(--shadow-tint)/0.45)] ${tone}`} onClick={onClick}><p className="relative z-10 text-sm font-medium text-foreground">{label}</p><p className="relative z-10 mt-2 font-display text-6xl leading-none tabular-nums text-matcha-900">{value}</p><Icon aria-hidden="true" className="absolute -right-2 -bottom-2 size-20 text-matcha-900/10" /></button>
 }
 
 function AlertPanel({ id, title, empty, items, ariaLabel, renderItem }) {
   const scrollable = items.length > ALERT_VISIBLE_ROWS
   return (
-    <section id={id} className="scroll-mt-4 rounded-xl border bg-card p-4">
-      <div className="mb-3 flex items-center justify-between gap-3"><h2 className="section-title">{title}</h2><span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium tabular-nums text-muted-foreground">{items.length}</span></div>
+    <section id={id} className="surface-card scroll-mt-4 rounded-3xl p-4">
+      <div className="mb-3 flex items-center justify-between gap-3"><h2 className="section-title">{title}</h2><span className="rounded-full bg-matcha-100 px-2 py-0.5 text-xs font-medium tabular-nums text-matcha-900">{items.length}</span></div>
       {items.length ? <><div className="scroll-thin grid content-start gap-2 overflow-y-auto overscroll-contain pr-1" style={{ maxHeight: ALERT_LIST_MAX_HEIGHT }} {...(scrollable ? { tabIndex: 0, role: 'region', 'aria-label': ariaLabel } : {})}>{items.map((item) => <div key={item.item?.inventory_item_id || item.inventory_item_id || item.product_id} className="h-[5.25rem]">{renderItem(item)}</div>)}</div></> : <p className="text-sm text-muted-foreground">{empty}</p>}
     </section>
   )
 }
 
 function StockAlertRow({ item, onUpdated }) {
-  return <div className="flex h-full items-center justify-between gap-3 rounded-lg border p-3"><div className="min-w-0"><p className="truncate font-medium text-foreground">{item.item_name}</p><p className="truncate text-sm text-muted-foreground">{formatStock(item)} / threshold {formatStock(item, item.minimum_quantity)}</p></div><div className="grid shrink-0 justify-items-end gap-1"><StatusBadge status={item.stock_status} /><UpdateQuantityDialog item={item} onUpdated={onUpdated} /></div></div>
+  return <div className={`flex h-full items-center justify-between gap-3 rounded-xl border border-l-4 bg-cream-50/60 p-3 ${item.stock_status === 'out_of_stock' ? 'border-l-destructive' : 'border-l-amber-500'}`}><div className="min-w-0"><p className="truncate font-medium text-foreground">{item.item_name}</p><p className="truncate text-sm text-muted-foreground">{formatStock(item)} / threshold {formatStock(item, item.minimum_quantity)}</p></div><div className="grid shrink-0 justify-items-end gap-1"><StatusBadge status={item.stock_status} /><UpdateQuantityDialog item={item} onUpdated={onUpdated} /></div></div>
 }
 
 function MaintenanceAlertRow({ item, state, onUpdated }) {
-  return <div className="flex h-full items-center justify-between gap-3 rounded-lg border p-3"><div className="min-w-0"><p className="truncate font-medium text-foreground">{item.item_name}</p><p className="truncate text-sm text-muted-foreground">{state.label}</p></div><UpdateQuantityDialog item={item} onUpdated={onUpdated} /></div>
+  return <div className="flex h-full items-center justify-between gap-3 rounded-xl border border-l-4 border-l-matcha-500 bg-cream-50/60 p-3"><div className="min-w-0"><p className="truncate font-medium text-foreground">{item.item_name}</p><p className="truncate text-sm text-muted-foreground">{state.label}</p></div><UpdateQuantityDialog item={item} onUpdated={onUpdated} /></div>
 }
 
 function UnavailableProductRow({ product }) {
   const detail = product.packageBlockedItemName ? `Recipe uses ${product.packageBlockedItemName}, which is tracked by whole package — fix it in Products` : product.max_servings === null ? 'No recipe yet' : `Unavailable — out of ${product.limiting_item_name || 'stock'}`
-  return <div className="flex h-full flex-col justify-center rounded-lg border p-3"><p className="truncate font-medium text-foreground">{product.product_name}</p><p className={`truncate text-sm ${product.packageBlockedItemName ? 'text-destructive' : 'text-muted-foreground'}`}>{detail}</p></div>
+  return <div className="flex h-full flex-col justify-center rounded-xl border border-l-4 border-l-matcha-500 bg-cream-50/60 p-3"><p className="truncate font-medium text-foreground">{product.product_name}</p><p className={`truncate text-sm ${product.packageBlockedItemName ? 'text-destructive' : 'text-muted-foreground'}`}>{detail}</p></div>
 }
