@@ -101,7 +101,7 @@ function DeleteProductButton({ product, onDeleted }) {
   return (
     <Dialog open={open} onOpenChange={(nextOpen) => { if (!deleting) { setOpen(nextOpen); if (!nextOpen) setError(null) } }}>
       <Button type="button" variant="destructive" size="sm" onClick={() => setOpen(true)}><Trash2 />Delete</Button>
-      {open && <DialogContent size="sm" showCloseButton={!deleting}><DialogHeader><DialogTitle>Delete {product.product_name}?</DialogTitle></DialogHeader><DialogBody className="grid gap-3"><p className="text-sm text-muted-foreground">This permanently removes the product and its recipe. This can’t be undone.</p>{error && <p className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive" role="alert">{error}</p>}</DialogBody><DialogFooter><Button type="button" variant="outline" onClick={() => setOpen(false)} disabled={deleting}>Cancel</Button><Button type="button" variant="destructive" onClick={deleteProduct} disabled={deleting}>{deleting ? 'Deleting…' : 'Delete product'}</Button></DialogFooter></DialogContent>}
+      {open && <DialogContent size="sm" showCloseButton={!deleting}><DialogHeader><DialogTitle>Delete {product.product_name}?</DialogTitle></DialogHeader><DialogBody className="grid gap-3"><p className="text-sm text-muted-foreground">This permanently removes the product and its recipe. This can’t be undone.</p></DialogBody><DialogFooter><Button type="button" variant="outline" onClick={() => setOpen(false)} disabled={deleting}>Cancel</Button><Button type="button" variant="destructive" onClick={deleteProduct} disabled={deleting}>{deleting ? 'Deleting…' : 'Delete product'}</Button></DialogFooter></DialogContent>}
     </Dialog>
   )
 }
@@ -124,7 +124,6 @@ function ProductDialog({ product, inventory, onClose, onSaved }) {
   const selectedIds = [...ingredientRows, ...materialRows].map((row) => String(row.inventory_item_id)).filter(Boolean)
   const blockedRows = [...ingredientRows, ...materialRows].filter((row) => row.inventory_item_id && !canBeInRecipe(inventory.find((item) => String(item.inventory_item_id) === String(row.inventory_item_id))))
   const hasBlockedRows = blockedRows.length > 0
-  const displayedError = error || (hasBlockedRows ? 'Fix or remove the highlighted recipe lines before saving.' : null)
 
   useEffect(() => {
     if (!product) return undefined
@@ -186,7 +185,6 @@ function ProductDialog({ product, inventory, onClose, onSaved }) {
           <fieldset className="grid gap-4"><legend className="section-title">Details</legend><div className="grid gap-4 sm:grid-cols-2"><div className="grid gap-1.5"><Label htmlFor="product-name">Name</Label><Input id="product-name" value={name} onChange={(event) => setName(event.target.value)} /></div><div className="grid gap-1.5"><Label htmlFor="product-price">Price</Label><NumberField id="product-price" value={price} onValueChange={setPrice} min={0} decimals={2} suffix="₱" /></div></div><div className="grid gap-1.5"><Label>Image</Label><ImageUpload product={imageRemoved ? null : product} file={imageFile} onFileChange={(file) => { setImageFile(file); setImageRemoved(false) }} onRemove={() => { setImageFile(null); setImageRemoved(true) }} disabled={saving} /></div><div className="flex items-center gap-2"><Switch id="product-active" checked={active} onCheckedChange={setActive} /><Label htmlFor="product-active" className="cursor-pointer font-normal">Active and available to order</Label></div></fieldset>
           {loadingRecipe ? <p className="text-sm text-muted-foreground">Loading recipe…</p> : <><RecipeSection title="Ingredients" description="These are the drink's consumable ingredients." rows={ingredientRows} items={ingredientItems} selectedIds={selectedIds} onAdd={() => setIngredientRows((rows) => [...rows, emptyRecipeRow()])} onUpdate={(key, field, value) => changeRow(setIngredientRows, key, field, value)} onRemove={(key) => removeRow(setIngredientRows, key, true)} keepOne /><RecipeSection title="Materials" description="Materials can be added only when tracked by piece. Items tracked by whole package (Cups, Straws, Cellophane, Parchment Paper, Tissue) must first be given a pieces-per-package number in Inventory → Edit → Set pieces per pkg." rows={materialRows} items={materialItems} selectedIds={selectedIds} onAdd={() => setMaterialRows((rows) => [...rows, emptyRecipeRow()])} onUpdate={(key, field, value) => changeRow(setMaterialRows, key, field, value)} onRemove={(key) => removeRow(setMaterialRows, key, false)} /></>}
         </DialogBody>
-        {displayedError && <p className="mx-6 mb-3 shrink-0 rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive" role="alert">{displayedError}</p>}
         <DialogFooter><Button type="submit" disabled={saving || loadingRecipe || hasBlockedRows}>{saving ? 'Saving…' : 'Save product and recipe'}</Button></DialogFooter>
       </form>
     </DialogContent>

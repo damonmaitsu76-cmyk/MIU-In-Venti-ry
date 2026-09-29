@@ -150,7 +150,7 @@ function DeleteInventoryButton({ item, onDeleted }) {
   return (
     <Dialog open={open} onOpenChange={(nextOpen) => { if (!deleting) { setOpen(nextOpen); if (!nextOpen) setError(null) } }}>
       <Button type="button" variant="destructive" size="sm" onClick={() => setOpen(true)}><Trash2 />Delete</Button>
-      {open && <DialogContent size="sm" showCloseButton={!deleting}><DialogHeader><DialogTitle>Delete {item.item_name}?</DialogTitle></DialogHeader><DialogBody className="grid gap-3"><p className="text-sm text-muted-foreground">This permanently removes the inventory item. This can’t be undone.</p>{error && <p className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive" role="alert">{error}</p>}</DialogBody><DialogFooter><Button type="button" variant="outline" onClick={() => setOpen(false)} disabled={deleting}>Cancel</Button><Button type="button" variant="destructive" onClick={deleteItem} disabled={deleting}>{deleting ? 'Deleting…' : 'Delete item'}</Button></DialogFooter></DialogContent>}
+      {open && <DialogContent size="sm" showCloseButton={!deleting}><DialogHeader><DialogTitle>Delete {item.item_name}?</DialogTitle></DialogHeader><DialogBody className="grid gap-3"><p className="text-sm text-muted-foreground">This permanently removes the inventory item. This can’t be undone.</p></DialogBody><DialogFooter><Button type="button" variant="outline" onClick={() => setOpen(false)} disabled={deleting}>Cancel</Button><Button type="button" variant="destructive" onClick={deleteItem} disabled={deleting}>{deleting ? 'Deleting…' : 'Delete item'}</Button></DialogFooter></DialogContent>}
     </Dialog>
   )
 }
@@ -216,7 +216,6 @@ export function InventoryItemDialog({ item, items, onSaved }) {
           {editMode && <p className="rounded-md bg-muted p-3 text-xs text-muted-foreground">Current quantity is read-only here — use Update stock to change it. Unit uses the package conversion action when appropriate.</p>}          {form.itemType === 'material' && <fieldset className="grid gap-3 rounded-lg border p-4"><div className="flex items-center justify-between gap-4"><div><Label htmlFor="needs-maintenance" className="cursor-pointer">Needs maintenance / replacement</Label><p className="text-xs text-muted-foreground">Only show this for materials that need a regular task.</p></div><Switch id="needs-maintenance" checked={form.needsMaintenance} onCheckedChange={(checked) => change('needsMaintenance', checked)} /></div>{form.needsMaintenance && <div className="grid gap-4 sm:grid-cols-2"><div className="grid gap-1.5"><Label htmlFor="maintenance-interval">Every</Label><NumberField id="maintenance-interval" value={form.maintenanceInterval} onValueChange={(value) => change('maintenanceInterval', value)} min={1} decimals={0} suffix="days" /></div><div className="grid gap-1.5"><Label htmlFor="last-maintained">Last done (optional)</Label><Input id="last-maintained" type="date" value={form.lastMaintained} onChange={(event) => change('lastMaintained', event.target.value)} /></div></div>}</fieldset>}
           <p className="text-sm text-muted-foreground">{isPackTracked(previewItem) ? `Stored as ${formatStock(previewItem, storedQuantity)}.` : storagePreview.unit === 'pkg' ? 'Whole packs only — not usable in recipes.' : `Stored as ${formatStock(previewItem, storedQuantity)}.`}</p>
         </DialogBody>
-        {error && <p className="mx-6 mb-3 shrink-0 rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive" role="alert">{error}</p>}
         <DialogFooter><Button type="submit" disabled={saving}>{saving ? 'Saving…' : editMode ? 'Save changes' : 'Save item'}</Button></DialogFooter>
       </form>
     </DialogContent>
@@ -244,7 +243,6 @@ export function UpdateQuantityDialog({ item, onUpdated }) {
             <p className="rounded-md bg-muted p-3 text-sm text-muted-foreground">Will become: <strong className="text-foreground">{formatStock(item, nextQuantity)}</strong></p>
             {item.needs_maintenance && <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border p-3"><p className="text-xs text-muted-foreground">Last done: {item.last_maintained_at ? new Date(item.last_maintained_at).toLocaleDateString('en-PH', { timeZone: 'Asia/Manila' }) : 'not recorded'}</p><Button type="button" variant="outline" size="sm" onClick={markDone} disabled={markingDone}>{markingDone ? 'Saving…' : 'Mark as done today'}</Button></div>}
           </DialogBody>
-          {error && <p className="mx-6 mb-3 shrink-0 rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive" role="alert">{error}</p>}
           <DialogFooter><Button type="submit" disabled={saving}>{saving ? 'Saving…' : 'Confirm update'}</Button></DialogFooter>
         </form>
       </DialogContent>
