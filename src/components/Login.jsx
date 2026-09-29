@@ -14,34 +14,31 @@ export default function Login() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState(null)
   const [showPassword, setShowPassword] = useState(false)
   const [mode, setMode] = useState('signin')
 
   async function handleSubmit(e) {
     e.preventDefault()
     setLoading(true)
-    setError(null)
-
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
+    const { error: signInError } = await supabase.auth.signInWithPassword({ email, password })
 
     setLoading(false)
-    if (error) { setError(error.message); toast.error(error.message) }
+    if (signInError) toast.error(signInError.message)
     else toast.success('Signed in successfully.')
     // On success, App.jsx's onAuthStateChange listener picks up the new session.
   }
 
   return (
-    <section data-page="login" className="relative isolate grid min-h-dvh place-items-center p-4 sm:p-8">
+    <section data-page="login" className="relative isolate grid min-h-dvh place-items-center p-3 sm:p-6">
       <PageBackdrop animated rich />
-      <div className="relative z-10 flex w-full max-w-md flex-col overflow-hidden rounded-[2rem] shadow-[0_30px_80px_-30px_rgb(43_74_46/0.55)] md:max-w-[1360px] md:flex-row">
-        <div className="relative hidden shrink-0 flex-col justify-between overflow-hidden p-10 md:flex md:w-[46%] lg:p-12">
+      <div className="relative z-10 flex max-h-[calc(100dvh-1.5rem)] w-full max-w-md flex-col overflow-y-auto rounded-[2rem] shadow-[0_30px_80px_-30px_rgb(43_74_46/0.55)] md:max-w-[1360px] md:flex-row">
+        <div className="relative hidden shrink-0 flex-col justify-between overflow-hidden p-6 md:flex md:w-[46%] lg:p-8">
           <img src={heroPhoto} alt="" className="absolute inset-0 size-full object-cover" />
           <div aria-hidden className="absolute inset-0 bg-[rgba(63,94,61,0.2)]" />
           <div aria-hidden className="absolute inset-0 bg-[linear-gradient(180deg,rgba(24,37,24,0.48),transparent_45%,rgba(24,37,24,0.54))]" />
 
           <div className="relative z-10 flex flex-col items-center gap-2">
-            <LogoBadge size="clamp(96px, 20dvh, 132px)" />
+            <LogoBadge size="clamp(72px, 15dvh, 100px)" />
             <Wordmark
               size="lg"
               tone="light"
@@ -57,7 +54,7 @@ export default function Login() {
           </div>
         </div>
 
-        <div className="flex w-full min-w-0 flex-col justify-center bg-cream-50 p-6 sm:p-9 md:flex-1" style={{ '--lockup-logo': 'clamp(8rem, 26dvh, 15rem)' }}>
+        <div className="flex w-full min-w-0 flex-col justify-center bg-cream-50 p-5 sm:p-7 md:flex-1" style={{ '--lockup-logo': 'clamp(6rem, 20dvh, 11rem)' }}>
           <div className="flex w-full flex-wrap items-center justify-center gap-x-6 gap-y-3">
             <LogoBadge size="var(--lockup-logo)" alt="MIU In-Venti-ry" />
             <Wordmark
@@ -67,11 +64,11 @@ export default function Login() {
             />
           </div>
 
-          <p className="mt-5 text-center text-lg text-muted-foreground">Sign in to manage stock levels and logs</p>
+          <p className="mt-3 text-center text-lg text-muted-foreground">Sign in to manage stock levels and logs</p>
 
           {mode === 'signin' ? (
-            <form onSubmit={handleSubmit} className="mt-6 flex flex-col gap-4 text-left">
-              <div className="flex flex-col gap-4">
+            <form onSubmit={handleSubmit} className="mt-4 flex flex-col gap-3 text-left">
+              <div className="flex flex-col gap-3">
                 <div className="flex flex-col gap-1.5">
                   <Label htmlFor="email" className="font-['Instrument_Sans_Variable'] text-[13px] font-semibold text-[#526055]">
                     Username or Email
@@ -84,7 +81,7 @@ export default function Login() {
                     placeholder="you@miumatcha.jp"
                     autoComplete="email"
                     required
-                    className="h-12 rounded-xl border-input bg-cream-100 p-3 font-['Instrument_Sans_Variable'] text-sm text-foreground placeholder:text-muted-foreground focus-visible:border-primary focus-visible:ring-primary/25"
+                    className="h-11 rounded-xl border-input bg-cream-100 p-3 font-['Instrument_Sans_Variable'] text-sm text-foreground placeholder:text-muted-foreground focus-visible:border-primary focus-visible:ring-primary/25"
                   />
                 </div>
 
@@ -109,7 +106,7 @@ export default function Login() {
                       onChange={(e) => setPassword(e.target.value)}
                       autoComplete="current-password"
                       required
-                      className="h-12 rounded-xl border-input bg-cream-100 p-3 pr-10 font-['Instrument_Sans_Variable'] text-sm text-foreground focus-visible:border-primary focus-visible:ring-primary/25"
+                      className="h-11 rounded-xl border-input bg-cream-100 p-3 pr-10 font-['Instrument_Sans_Variable'] text-sm text-foreground focus-visible:border-primary focus-visible:ring-primary/25"
                     />
                     <button
                       type="button"
@@ -123,9 +120,7 @@ export default function Login() {
                 </div>
               </div>
 
-              {error && <p className="font-['Instrument_Sans_Variable'] text-sm text-destructive">{error}</p>}
-
-              <div className="flex flex-col gap-4">
+              <div className="flex flex-col gap-3">
                 <Button type="submit" disabled={loading} className="h-12 rounded-xl font-['Instrument_Sans_Variable'] text-[15px] font-semibold shadow-[0_12px_24px_-14px_rgb(var(--shadow-tint)/0.8)]">
                   {loading ? 'Signing in…' : 'Sign in'}
                 </Button>
@@ -135,7 +130,7 @@ export default function Login() {
               </div>
             </form>
           ) : (
-            <div className="mt-6 flex flex-col gap-6 text-left">
+            <div className="mt-4 flex flex-col gap-6 text-left">
               <p className="font-['Instrument_Sans_Variable'] text-sm text-[#526055]">
                 Password resets aren&apos;t self-service yet — email your cafe admin and ask them to reset it for you.
               </p>

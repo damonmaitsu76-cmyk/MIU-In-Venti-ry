@@ -121,14 +121,15 @@ function AlertPanel({ id, title, empty, items, ariaLabel, renderItem }) {
 }
 
 function StockAlertRow({ item, onUpdated }) {
-  return <div className={`flex h-full items-center justify-between gap-3 rounded-xl border border-l-4 bg-cream-50/60 p-3 ${item.stock_status === 'out_of_stock' ? 'border-l-destructive' : 'border-l-amber-500'}`}><div className="min-w-0"><p className="truncate font-medium text-foreground">{item.item_name}</p><p className="truncate text-sm text-muted-foreground">{formatStock(item)} / threshold {formatStock(item, item.minimum_quantity)}</p></div><div className="grid shrink-0 justify-items-end gap-1"><StatusBadge status={item.stock_status} /><UpdateQuantityDialog item={item} onUpdated={onUpdated} /></div></div>
+  const tint = item.stock_status === 'out_of_stock' ? 'bg-[color-mix(in_oklch,var(--destructive)_5%,var(--cream-50))]' : 'bg-[color-mix(in_oklch,#e0a526_5%,var(--cream-50))]'
+  return <div className={`flex h-full items-center justify-between gap-3 rounded-xl border p-3 ${tint}`}><div className="min-w-0"><p className="truncate font-medium text-foreground">{item.item_name}</p><p className="truncate text-sm text-muted-foreground">{formatStock(item)} / threshold {formatStock(item, item.minimum_quantity)}</p></div><div className="grid shrink-0 justify-items-end gap-1"><StatusBadge status={item.stock_status} /><UpdateQuantityDialog item={item} onUpdated={onUpdated} /></div></div>
 }
 
 function MaintenanceAlertRow({ item, state, onUpdated }) {
-  return <div className="flex h-full items-center justify-between gap-3 rounded-xl border border-l-4 border-l-matcha-500 bg-cream-50/60 p-3"><div className="min-w-0"><p className="truncate font-medium text-foreground">{item.item_name}</p><p className="truncate text-sm text-muted-foreground">{state.label}</p></div><UpdateQuantityDialog item={item} onUpdated={onUpdated} /></div>
+  return <div className="flex h-full items-center justify-between gap-3 rounded-xl border bg-cream-50/60 p-3"><div className="min-w-0"><p className="truncate font-medium text-foreground">{item.item_name}</p><p className="truncate text-sm text-muted-foreground">{state.label}</p></div><UpdateQuantityDialog item={item} onUpdated={onUpdated} /></div>
 }
 
 function UnavailableProductRow({ product }) {
   const detail = product.packageBlockedItemName ? `Recipe uses ${product.packageBlockedItemName}, which is tracked by whole package — fix it in Products` : product.max_servings === null ? 'No recipe yet' : `Unavailable — out of ${product.limiting_item_name || 'stock'}`
-  return <div className="flex h-full flex-col justify-center rounded-xl border border-l-4 border-l-matcha-500 bg-cream-50/60 p-3"><p className="truncate font-medium text-foreground">{product.product_name}</p><p className={`truncate text-sm ${product.packageBlockedItemName ? 'text-destructive' : 'text-muted-foreground'}`}>{detail}</p></div>
+  return <div className="flex h-full flex-col justify-center rounded-xl border bg-cream-50/60 p-3"><p className="truncate font-medium text-foreground">{product.product_name}</p><p className={`truncate text-sm ${product.packageBlockedItemName ? 'text-destructive' : 'text-muted-foreground'}`}>{detail}</p></div>
 }
