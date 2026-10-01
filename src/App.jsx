@@ -11,6 +11,8 @@ import OrderEntry from './components/OrderEntry'
 import ProductDashboard from './components/ProductDashboard'
 import PageBackdrop from './components/PageBackdrop'
 import { Button } from './components/ui/button'
+import { Dialog, DialogBody, DialogContent, DialogFooter, DialogHeader, DialogTitle } from './components/ui/dialog'
+import { toast } from '@/lib/toast'
 
 const navigation = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -76,11 +78,46 @@ function App() {
       <svg aria-hidden="true" viewBox="0 0 240 120" preserveAspectRatio="none" className="pointer-events-none absolute inset-x-0 bottom-0 h-28 w-full text-matcha-200/70"><path d="M0,40 C40,10 80,70 120,40 C160,10 200,70 240,40 L240,120 L0,120 Z" fill="currentColor" /></svg>
       <div className="relative z-10"><Brand /></div>
       <nav className="relative z-10 mt-6 grid gap-2" aria-label="Main navigation">{navigation.map(({ id, label, icon: Icon }) => <NavigationButton key={id} active={view === id} label={label} icon={Icon} badge={id === 'dashboard' ? attentionCount : 0} onClick={() => navigate(id)} />)}</nav>
-      <div className="relative z-10 mt-auto shrink-0 border-t pt-4"><p className="mb-2 truncate px-2 text-sm text-muted-foreground">{staffName}</p><Button variant="ghost" className="w-full justify-start" onClick={() => supabase.auth.signOut()}><LogOut />Sign out</Button></div>
+      <div className="relative z-10 mt-auto shrink-0 border-t pt-4"><p className="mb-2 truncate px-2 text-sm text-muted-foreground">{staffName}</p><SignOutButton /></div>
     </aside>
-    <main className="relative z-10 min-w-0 p-4 pt-6 pb-24 sm:p-6 sm:pt-8 md:pb-16 lg:p-8 lg:pb-16"><div className="mb-6 flex items-center justify-between md:hidden"><Brand compact /><Button variant="ghost" size="icon-lg" onClick={() => supabase.auth.signOut()} aria-label="Sign out"><LogOut /></Button></div><div key={view} className="motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-bottom-2 motion-safe:duration-300 motion-safe:ease-out">{currentView}</div></main>
+    <main className="relative z-10 min-w-0 p-4 pt-6 pb-24 sm:p-6 sm:pt-8 md:pb-16 lg:p-8 lg:pb-16"><div className="mb-6 flex items-center justify-between md:hidden"><Brand compact /><SignOutButton compact /></div><div key={view} className="motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-bottom-2 motion-safe:duration-300 motion-safe:ease-out">{currentView}</div></main>
     <nav className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-5 border-t border-sand-400/70 bg-cream-100/90 p-2 backdrop-blur md:hidden" aria-label="Main navigation">{navigation.map(({ id, label, icon: Icon }) => <NavigationButton key={id} compact active={view === id} label={label} icon={Icon} badge={id === 'dashboard' ? attentionCount : 0} onClick={() => navigate(id)} />)}</nav>
   </div>
+}
+
+function SignOutButton({ compact = false }) {
+  const [open, setOpen] = useState(false)
+  const [signingOut, setSigningOut] = useState(false)
+
+  async function confirmSignOut() {
+    setSigningOut(true)
+    const { error } = await supabase.auth.signOut()
+    if (error) {
+      setSigningOut(false)
+      toast.error(`Could not sign out: ${error.message}`)
+    }
+    // On success, onAuthStateChange swaps the app to <Login />.
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={(next) => { if (!signingOut) setOpen(next) }}>
+      {compact
+        ? <Button variant="ghost" size="icon-lg" onClick={() => setOpen(true)} aria-label="Sign out"><LogOut /></Button>
+        : <Button variant="ghost" className="w-full justify-start" onClick={() => setOpen(true)}><LogOut />Sign out</Button>}
+      {open && (
+        <DialogContent size="sm" showCloseButton={!signingOut}>
+          <DialogHeader><DialogTitle>Sign out?</DialogTitle></DialogHeader>
+          <DialogBody className="grid gap-3">
+            <p className="text-sm text-muted-foreground">You'll need to sign in again to manage stock and orders.</p>
+          </DialogBody>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setOpen(false)} disabled={signingOut}>Cancel</Button>
+            <Button type="button" onClick={confirmSignOut} disabled={signingOut}>{signingOut ? 'Signing out…' : 'Sign out'}</Button>
+          </DialogFooter>
+        </DialogContent>
+      )}
+    </Dialog>
+  )
 }
 
 function Brand({ compact = false }) {
